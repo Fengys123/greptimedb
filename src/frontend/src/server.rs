@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use common_runtime::Builder as RuntimeBuilder;
 use common_telemetry::info;
+use servers::auth::UserProviderRef;
 use servers::grpc::GrpcServer;
 use servers::http::HttpServer;
 use servers::mysql::server::MysqlServer;
@@ -35,7 +36,11 @@ use crate::prometheus::PrometheusOptions;
 pub(crate) struct Services;
 
 impl Services {
-    pub(crate) async fn start<T>(opts: &FrontendOptions, instance: Arc<T>) -> Result<()>
+    pub(crate) async fn start<T>(
+        opts: &FrontendOptions,
+        instance: Arc<T>,
+        user_provider: Option<UserProviderRef>,
+    ) -> Result<()>
     where
         T: FrontendInstance,
     {
@@ -69,7 +74,8 @@ impl Services {
                     .context(error::RuntimeResourceSnafu)?,
             );
 
-            let mysql_server = MysqlServer::create_server(instance.clone(), mysql_io_runtime);
+            let mysql_server =
+                MysqlServer::create_server(instance.clone(), mysql_io_runtime, user_provider);
 
             Some((mysql_server, mysql_addr))
         } else {

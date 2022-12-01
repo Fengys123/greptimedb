@@ -5446,6 +5446,7 @@ dependencies = [
  "script",
  "serde",
  "serde_json",
+ "sha1",
  "snafu",
  "snap",
  "table",

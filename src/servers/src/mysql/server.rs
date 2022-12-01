@@ -25,6 +25,7 @@ use tokio;
 use tokio::io::BufWriter;
 use tokio::net::TcpStream;
 
+use crate::auth::UserProviderRef;
 use crate::error::Result;
 use crate::mysql::handler::MysqlInstanceShim;
 use crate::query_handler::SqlQueryHandlerRef;
@@ -36,16 +37,19 @@ const DEFAULT_RESULT_SET_WRITE_BUFFER_SIZE: usize = 100 * 1024;
 pub struct MysqlServer {
     base_server: BaseTcpServer,
     query_handler: SqlQueryHandlerRef,
+    user_provider: Option<UserProviderRef>,
 }
 
 impl MysqlServer {
     pub fn create_server(
         query_handler: SqlQueryHandlerRef,
         io_runtime: Arc<Runtime>,
+        user_provider: Option<UserProviderRef>,
     ) -> Box<dyn Server> {
         Box::new(MysqlServer {
             base_server: BaseTcpServer::create_server("MySQL", io_runtime),
             query_handler,
+            user_provider,
         })
     }
 
@@ -55,14 +59,17 @@ impl MysqlServer {
         stream: AbortableStream,
     ) -> impl Future<Output = ()> {
         let query_handler = self.query_handler.clone();
+        let user_provider = self.user_provider.clone();
         stream.for_each(move |tcp_stream| {
             let io_runtime = io_runtime.clone();
             let query_handler = query_handler.clone();
+            let user_provider = user_provider.clone();
             async move {
                 match tcp_stream {
                     Err(error) => error!("Broken pipe: {}", error), // IoError doesn't impl ErrorExt.
                     Ok(io_stream) => {
-                        if let Err(error) = Self::handle(io_stream, io_runtime, query_handler).await
+                        if let Err(error) =
+                            Self::handle(io_stream, io_runtime, query_handler, user_provider).await
                         {
                             error!(error; "Unexpected error when handling TcpStream");
                         };
@@ -76,9 +83,14 @@ impl MysqlServer {
         stream: TcpStream,
         io_runtime: Arc<Runtime>,
         query_handler: SqlQueryHandlerRef,
+        user_provider: Option<UserProviderRef>,
     ) -> Result<()> {
         info!("MySQL connection coming from: {}", stream.peer_addr()?);
-        let shim = MysqlInstanceShim::create(query_handler, stream.peer_addr()?.to_string());
+        let shim = MysqlInstanceShim::create(
+            query_handler,
+            stream.peer_addr()?.to_string(),
+            user_provider,
+        );
 
         let (r, w) = stream.into_split();
         let w = BufWriter::with_capacity(DEFAULT_RESULT_SET_WRITE_BUFFER_SIZE, w);

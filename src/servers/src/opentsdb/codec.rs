@@ -14,7 +14,7 @@
 
 use api::v1::column::SemanticType;
 use api::v1::{column, Column, ColumnDataType, InsertRequest as GrpcInsertRequest};
-use common_catalog::consts::DEFAULT_SCHEMA_NAME;
+use common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
 
 use crate::error::{self, Result};
 
@@ -126,6 +126,8 @@ impl DataPoint {
     }
 
     pub fn as_grpc_insert(&self) -> GrpcInsertRequest {
+        // TODO(fys): get tenant(catalog), database(schema)
+        let catalog_name = DEFAULT_CATALOG_NAME.to_string();
         let schema_name = DEFAULT_SCHEMA_NAME.to_string();
         let mut columns = Vec::with_capacity(2 + self.tags.len());
 
@@ -172,6 +174,7 @@ impl DataPoint {
             region_number: 0,
             columns,
             row_count: 1,
+            catalog_name,
         }
     }
 

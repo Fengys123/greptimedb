@@ -21,7 +21,6 @@ use api::v1::{
     InsertRequest as GrpcInsertRequest,
 };
 use common_base::BitVec;
-use common_catalog::consts::DEFAULT_CATALOG_NAME;
 use common_time::timestamp::Timestamp;
 use common_time::{Date, DateTime};
 use datatypes::data_type::{ConcreteDataType, DataType};
@@ -282,7 +281,7 @@ pub fn build_create_expr_from_insertion(
 }
 
 pub fn to_table_insert_request(request: GrpcInsertRequest) -> Result<InsertRequest> {
-    let catalog_name = DEFAULT_CATALOG_NAME;
+    let catalog_name = &request.catalog_name;
     let schema_name = &request.schema_name;
     let table_name = &request.table_name;
     let row_count = request.row_count as usize;
@@ -617,6 +616,7 @@ mod tests {
     fn test_to_table_insert_request() {
         let (columns, row_count) = mock_insert_batch();
         let request = GrpcInsertRequest {
+            catalog_name: "greptime".to_string(),
             schema_name: "public".to_string(),
             table_name: "demo".to_string(),
             columns,

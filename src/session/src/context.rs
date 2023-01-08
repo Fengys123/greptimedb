@@ -22,6 +22,7 @@ pub type QueryContextRef = Arc<QueryContext>;
 pub type ConnInfoRef = Arc<ConnInfo>;
 
 pub struct QueryContext {
+    // current_catalog: Arc<>
     current_schema: ArcSwapOption<String>,
 }
 

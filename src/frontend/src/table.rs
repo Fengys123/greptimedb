@@ -1157,6 +1157,7 @@ mod test {
             },
         ];
         let request = InsertRequest {
+            catalog_name: table_name.catalog_name.clone(),
             schema_name: table_name.schema_name.clone(),
             table_name: table_name.table_name.clone(),
             columns,

@@ -172,6 +172,7 @@ async fn insert_and_assert(db: &Database) {
     let (expected_host_col, expected_cpu_col, expected_mem_col, expected_ts_col) = expect_data();
 
     let request = InsertRequest {
+        catalog_name: "greptime".to_string(),
         schema_name: "public".to_string(),
         table_name: "demo".to_string(),
         region_number: 0,

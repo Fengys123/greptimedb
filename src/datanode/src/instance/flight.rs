@@ -26,7 +26,6 @@ use arrow_flight::{
     HandshakeRequest, HandshakeResponse, PutResult, SchemaResult, Ticket,
 };
 use async_trait::async_trait;
-use common_catalog::consts::DEFAULT_CATALOG_NAME;
 use common_grpc::flight::{FlightEncoder, FlightMessage};
 use common_query::Output;
 use futures::Stream;
@@ -152,10 +151,9 @@ impl Instance {
 
     pub async fn handle_insert(&self, request: InsertRequest) -> Result<Output> {
         let table_name = &request.table_name.clone();
-        // TODO(LFC): InsertRequest should carry catalog name, too.
         let table = self
             .catalog_manager
-            .table(DEFAULT_CATALOG_NAME, &request.schema_name, table_name)
+            .table(&request.catalog_name, &request.schema_name, table_name)
             .context(CatalogSnafu)?
             .context(TableNotFoundSnafu { table_name })?;
 

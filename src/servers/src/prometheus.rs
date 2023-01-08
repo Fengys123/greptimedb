@@ -21,6 +21,7 @@ use api::prometheus::remote::label_matcher::Type as MatcherType;
 use api::prometheus::remote::{Label, Query, Sample, TimeSeries, WriteRequest};
 use api::v1::column::SemanticType;
 use api::v1::{column, Column, ColumnDataType, InsertRequest as GrpcInsertRequest};
+use common_catalog::consts::DEFAULT_CATALOG_NAME;
 use common_recordbatch::{RecordBatch, RecordBatches};
 use common_time::timestamp::TimeUnit;
 use datatypes::prelude::{ConcreteDataType, Value};
@@ -297,6 +298,7 @@ pub fn to_grpc_insert_requests(
 }
 
 fn to_grpc_insert_request(database: &str, mut timeseries: TimeSeries) -> Result<GrpcInsertRequest> {
+    let catalog_name = DEFAULT_CATALOG_NAME.to_string();
     let schema_name = database.to_string();
 
     // TODO(dennis): save exemplars into a column
@@ -355,6 +357,7 @@ fn to_grpc_insert_request(database: &str, mut timeseries: TimeSeries) -> Result<
     }
 
     Ok(GrpcInsertRequest {
+        catalog_name,
         schema_name,
         table_name: table_name.context(error::InvalidPromRemoteRequestSnafu {
             msg: "missing '__name__' label in timeseries",

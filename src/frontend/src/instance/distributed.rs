@@ -355,10 +355,9 @@ impl DistInstance {
     // Also remember to check the "region_number" carried in InsertRequest, too.
     async fn handle_dist_insert(&self, request: InsertRequest) -> Result<Output> {
         let table_name = &request.table_name;
-        // TODO(LFC): InsertRequest should carry catalog name, too.
         let table = self
             .catalog_manager
-            .table(DEFAULT_CATALOG_NAME, &request.schema_name, table_name)
+            .table(&request.catalog_name, &request.schema_name, table_name)
             .context(CatalogSnafu)?
             .context(TableNotFoundSnafu { table_name })?;
 

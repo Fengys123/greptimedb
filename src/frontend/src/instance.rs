@@ -206,9 +206,9 @@ impl Instance {
     }
 
     async fn handle_insert(&self, request: InsertRequest) -> Result<Output> {
+        let catalog_name = &request.catalog_name;
         let schema_name = &request.schema_name;
         let table_name = &request.table_name;
-        let catalog_name = DEFAULT_CATALOG_NAME;
 
         let columns = &request.columns;
 
@@ -732,6 +732,7 @@ mod tests {
         ];
         let row_count = 4;
         let request = InsertRequest {
+            catalog_name: "greptime".to_string(),
             schema_name: "public".to_string(),
             table_name: "demo".to_string(),
             region_number: 0,

@@ -130,6 +130,7 @@ fn to_grpc_insert_request(
     let table_name = insert.table_name.clone();
     let (columns, row_count) = insert_request_to_insert_batch(&insert)?;
     Ok(GrpcInsertRequest {
+        catalog_name: insert.catalog_name,
         schema_name: insert.schema_name,
         table_name,
         region_number,

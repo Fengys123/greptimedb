@@ -617,6 +617,7 @@ mod tests {
     fn test_to_table_insert_request() {
         let (columns, row_count) = mock_insert_batch();
         let request = GrpcInsertRequest {
+            catalog_name: "greptime".to_string(),
             schema_name: "public".to_string(),
             table_name: "demo".to_string(),
             columns,

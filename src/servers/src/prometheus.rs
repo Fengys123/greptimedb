@@ -355,6 +355,7 @@ fn to_grpc_insert_request(database: &str, mut timeseries: TimeSeries) -> Result<
     }
 
     Ok(GrpcInsertRequest {
+        catalog_name: "greptime".to_string(),
         schema_name,
         table_name: table_name.context(error::InvalidPromRemoteRequestSnafu {
             msg: "missing '__name__' label in timeseries",

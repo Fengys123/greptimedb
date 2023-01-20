@@ -167,6 +167,7 @@ impl DataPoint {
         }
 
         GrpcInsertRequest {
+            catalog_name: "greptime".to_string(),
             schema_name,
             table_name: self.metric.clone(),
             region_number: 0,

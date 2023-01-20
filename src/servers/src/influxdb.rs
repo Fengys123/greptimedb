@@ -27,6 +27,7 @@ pub const DEFAULT_TIME_PRECISION: Precision = Precision::Nanosecond;
 #[derive(Debug)]
 pub struct InfluxdbRequest {
     pub precision: Option<Precision>,
+    pub tenant: String,
     pub db: String,
     pub lines: String,
 }
@@ -111,6 +112,7 @@ impl TryFrom<&InfluxdbRequest> for Vec<GrpcInsertRequest> {
             .map(|(table_name, writer)| {
                 let (columns, row_count) = writer.finish();
                 GrpcInsertRequest {
+                    catalog_name: value.tenant.clone(),
                     schema_name: schema_name.clone(),
                     table_name,
                     region_number: 0,
@@ -140,6 +142,7 @@ monitor2,host=host3 cpu=66.5 1663840496100023102
 monitor2,host=host4 cpu=66.3,memory=1029 1663840496400340003";
 
         let influxdb_req = &InfluxdbRequest {
+            tenant: "greptime".to_string(),
             db: "public".to_string(),
             precision: None,
             lines: lines.to_string(),

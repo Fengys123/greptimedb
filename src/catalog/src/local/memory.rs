@@ -369,7 +369,7 @@ impl Default for MemorySchemaProvider {
 
 #[async_trait]
 impl SchemaProvider for MemorySchemaProvider {
-    fn as_any(&self) -> &dyn Any {
+    fn as_any(&self) -> &(dyn Any + Send + Sync) {
         self
     }
 

@@ -348,7 +348,7 @@ pub struct FrontendSchemaProvider {
 
 #[async_trait]
 impl SchemaProvider for FrontendSchemaProvider {
-    fn as_any(&self) -> &dyn Any {
+    fn as_any(&self) -> &(dyn Any + Send + Sync) {
         self
     }
 

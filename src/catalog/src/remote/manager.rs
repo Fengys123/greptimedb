@@ -16,15 +16,18 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_stream::stream;
 use async_trait::async_trait;
 use common_catalog::consts::{MAX_SYS_TABLE_ID, MITO_ENGINE};
-use common_telemetry::{debug, error, info, warn};
+use common_telemetry::{debug, error, info, trace, warn};
 use dashmap::DashMap;
 use futures::Stream;
 use futures_util::{StreamExt, TryStreamExt};
+use lazy_static::__Deref;
 use metrics::{decrement_gauge, increment_gauge};
+use moka::future::{Cache, CacheBuilder};
 use parking_lot::RwLock;
 use snafu::{OptionExt, ResultExt};
 use table::engine::manager::TableEngineManagerRef;
@@ -33,9 +36,10 @@ use table::requests::{CreateTableRequest, OpenTableRequest};
 use table::TableRef;
 use tokio::sync::Mutex;
 
+use crate::error::Error::{self, NoSuchKey};
 use crate::error::{
-    CatalogNotFoundSnafu, CreateTableSnafu, InvalidCatalogValueSnafu, OpenTableSnafu,
-    ParallelOpenTableSnafu, Result, SchemaNotFoundSnafu, TableEngineNotFoundSnafu,
+    CatalogNotFoundSnafu, CreateTableSnafu, GenericSnafu, InvalidCatalogValueSnafu, NoSuchKeySnafu,
+    OpenTableSnafu, ParallelOpenTableSnafu, Result, SchemaNotFoundSnafu, TableEngineNotFoundSnafu,
     TableExistsSnafu, UnimplementedSnafu,
 };
 use crate::helper::{
@@ -50,6 +54,10 @@ use crate::{
     RegisterTableRequest, RenameTableRequest, SchemaProvider, SchemaProviderRef,
 };
 
+const CACHE_MAX_CAPACITY: u64 = 1024;
+const CACHE_TTL_SECONDS: u64 = 30 * 60;
+const CACHE_TTI_SECONDS: u64 = 5 * 60;
+
 /// Catalog manager based on metasrv.
 pub struct RemoteCatalogManager {
     node_id: u64,
@@ -57,26 +65,34 @@ pub struct RemoteCatalogManager {
     catalogs: Arc<RwLock<DashMap<String, CatalogProviderRef>>>,
     engine_manager: TableEngineManagerRef,
     system_table_requests: Mutex<Vec<RegisterSystemTableRequest>>,
+    cache: Arc<Cache<String, CatalogProviderRef>>,
 }
 
 impl RemoteCatalogManager {
     pub fn new(engine_manager: TableEngineManagerRef, node_id: u64, backend: KvBackendRef) -> Self {
+        let cache = Arc::new(
+            CacheBuilder::new(CACHE_MAX_CAPACITY)
+                .time_to_live(Duration::from_secs(CACHE_TTL_SECONDS))
+                .time_to_idle(Duration::from_secs(CACHE_TTI_SECONDS))
+                .build(),
+        );
         Self {
             engine_manager,
             node_id,
             backend,
             catalogs: Default::default(),
             system_table_requests: Default::default(),
+            cache,
         }
     }
 
     fn new_catalog_provider(&self, catalog_name: &str) -> CatalogProviderRef {
-        Arc::new(RemoteCatalogProvider {
-            node_id: self.node_id,
-            catalog_name: catalog_name.to_string(),
-            backend: self.backend.clone(),
-            engine_manager: self.engine_manager.clone(),
-        }) as _
+        Arc::new(RemoteCatalogProvider::new(
+            catalog_name.to_string(),
+            self.backend.clone(),
+            self.engine_manager.clone(),
+            self.node_id,
+        )) as _
     }
 
     async fn iter_remote_catalogs(
@@ -192,6 +208,24 @@ impl RemoteCatalogManager {
         info!("Created catalog '{catalog_key}");
         Ok(catalog_provider)
     }
+
+    async fn invalidate_cache(&self, catalog: &str, schema: &str, table: &str) -> Result<()> {
+        let schema_provider = self
+            .schema(catalog, schema)
+            .await?
+            .context(SchemaNotFoundSnafu { catalog, schema })?;
+
+        let provider_any = schema_provider.as_any();
+
+        if let Some(provider) = provider_any.downcast_ref::<RemoteSchemaProvider>() {
+            trace!("Successfully invalidate catalog cache, catalog: {catalog}, schema: {schema}, table: {table}");
+            provider.cache.invalidate(table).await;
+        } else {
+            warn!("Failed to invalidate catalog cache, catalog: {catalog}, schema: {schema}, table: {table}");
+        }
+
+        Ok(())
+    }
 }
 
 fn new_schema_provider(
@@ -201,13 +235,13 @@ fn new_schema_provider(
     catalog_name: &str,
     schema_name: &str,
 ) -> SchemaProviderRef {
-    Arc::new(RemoteSchemaProvider {
-        catalog_name: catalog_name.to_string(),
-        schema_name: schema_name.to_string(),
+    Arc::new(RemoteSchemaProvider::new(
+        catalog_name.to_string(),
+        schema_name.to_string(),
         node_id,
-        backend,
         engine_manager,
-    }) as _
+        backend,
+    )) as _
 }
 
 async fn iter_remote_schemas<'a>(
@@ -547,6 +581,7 @@ impl CatalogManager for RemoteCatalogManager {
     async fn deregister_table(&self, request: DeregisterTableRequest) -> Result<bool> {
         let catalog_name = &request.catalog;
         let schema_name = &request.schema;
+        let table_name = &request.table_name;
         let result = self
             .schema(catalog_name, schema_name)
             .await?
@@ -554,13 +589,17 @@ impl CatalogManager for RemoteCatalogManager {
                 catalog: catalog_name,
                 schema: schema_name,
             })?
-            .deregister_table(&request.table_name)
+            .deregister_table(table_name)
             .await?;
         decrement_gauge!(
             crate::metrics::METRIC_CATALOG_MANAGER_TABLE_COUNT,
             1.0,
             &[crate::metrics::db_label(catalog_name, schema_name)],
         );
+
+        self.invalidate_cache(catalog_name, schema_name, table_name)
+            .await?;
+
         Ok(result.is_none())
     }
 
@@ -588,28 +627,39 @@ impl CatalogManager for RemoteCatalogManager {
     }
 
     async fn rename_table(&self, request: RenameTableRequest) -> Result<bool> {
+        let catalog_name = &request.catalog;
+        let schema_name = &request.schema;
+        let table_name = &request.table_name;
+
         let old_table_key = TableRegionalKey {
-            catalog_name: request.catalog.clone(),
-            schema_name: request.schema.clone(),
-            table_name: request.table_name.clone(),
+            catalog_name: catalog_name.to_string(),
+            schema_name: schema_name.to_string(),
+            table_name: table_name.to_string(),
             node_id: self.node_id,
         }
         .to_string();
+
         let Some(Kv(_, value_bytes)) = self.backend.get(old_table_key.as_bytes()).await? else {
             return Ok(false)
         };
+
         let new_table_key = TableRegionalKey {
             catalog_name: request.catalog.clone(),
             schema_name: request.schema.clone(),
             table_name: request.new_table_name,
             node_id: self.node_id,
         };
+
         self.backend
             .set(new_table_key.to_string().as_bytes(), &value_bytes)
             .await?;
         self.backend
             .delete(old_table_key.to_string().as_bytes())
             .await?;
+
+        self.invalidate_cache(catalog_name, schema_name, table_name)
+            .await?;
+
         Ok(true)
     }
 
@@ -658,14 +708,23 @@ impl CatalogManager for RemoteCatalogManager {
     }
 
     async fn catalog(&self, catalog: &str) -> Result<Option<CatalogProviderRef>> {
-        let key = CatalogKey {
-            catalog_name: catalog.to_string(),
+        let init = async {
+            let key = CatalogKey {
+                catalog_name: catalog.to_string(),
+            };
+            let catalog = self
+                .backend
+                .get(key.to_string().as_bytes())
+                .await?
+                .map(|_| self.new_catalog_provider(catalog));
+
+            convert(Ok(catalog))
         };
-        Ok(self
-            .backend
-            .get(key.to_string().as_bytes())
-            .await?
-            .map(|_| self.new_catalog_provider(catalog)))
+
+        let catalog_provider: std::result::Result<CatalogProviderRef, Arc<Error>> =
+            self.cache.try_get_with_by_ref(catalog, init).await;
+
+        re_convert(catalog_provider)
     }
 
     async fn catalog_names(&self) -> Result<Vec<String>> {
@@ -714,6 +773,7 @@ pub struct RemoteCatalogProvider {
     catalog_name: String,
     backend: KvBackendRef,
     engine_manager: TableEngineManagerRef,
+    cache: Arc<Cache<String, SchemaProviderRef>>,
 }
 
 impl RemoteCatalogProvider {
@@ -723,11 +783,18 @@ impl RemoteCatalogProvider {
         engine_manager: TableEngineManagerRef,
         node_id: u64,
     ) -> Self {
+        let cache = Arc::new(
+            CacheBuilder::new(CACHE_MAX_CAPACITY)
+                .time_to_live(Duration::from_secs(CACHE_TTL_SECONDS))
+                .time_to_idle(Duration::from_secs(CACHE_TTI_SECONDS))
+                .build(),
+        );
         Self {
             node_id,
             catalog_name,
             backend,
             engine_manager,
+            cache,
         }
     }
 
@@ -739,13 +806,13 @@ impl RemoteCatalogProvider {
     }
 
     fn build_schema_provider(&self, schema_name: &str) -> SchemaProviderRef {
-        let provider = RemoteSchemaProvider {
-            catalog_name: self.catalog_name.clone(),
-            schema_name: schema_name.to_string(),
-            node_id: self.node_id,
-            backend: self.backend.clone(),
-            engine_manager: self.engine_manager.clone(),
-        };
+        let provider = RemoteSchemaProvider::new(
+            self.catalog_name.clone(),
+            schema_name.to_string(),
+            self.node_id,
+            self.engine_manager.clone(),
+            self.backend.clone(),
+        );
         Arc::new(provider) as Arc<_>
     }
 }
@@ -792,12 +859,20 @@ impl CatalogProvider for RemoteCatalogProvider {
     }
 
     async fn schema(&self, name: &str) -> Result<Option<SchemaProviderRef>> {
-        let key = self.build_schema_key(name).to_string();
-        Ok(self
-            .backend
-            .get(key.as_bytes())
-            .await?
-            .map(|_| self.build_schema_provider(name)))
+        let init = async {
+            let key = self.build_schema_key(name).to_string();
+            let schema_provider = self
+                .backend
+                .get(key.as_bytes())
+                .await?
+                .map(|_| self.build_schema_provider(name));
+            convert(Ok(schema_provider))
+        };
+
+        let schema_provider: std::result::Result<SchemaProviderRef, Arc<Error>> =
+            self.cache.try_get_with_by_ref(name, init).await;
+
+        re_convert(schema_provider)
     }
 }
 
@@ -807,6 +882,7 @@ pub struct RemoteSchemaProvider {
     node_id: u64,
     backend: KvBackendRef,
     engine_manager: TableEngineManagerRef,
+    cache: Arc<Cache<String, TableRef>>,
 }
 
 impl RemoteSchemaProvider {
@@ -817,12 +893,19 @@ impl RemoteSchemaProvider {
         engine_manager: TableEngineManagerRef,
         backend: KvBackendRef,
     ) -> Self {
+        let cache = Arc::new(
+            CacheBuilder::new(CACHE_MAX_CAPACITY)
+                .time_to_live(Duration::from_secs(CACHE_TTL_SECONDS))
+                .time_to_idle(Duration::from_secs(CACHE_TTI_SECONDS))
+                .build(),
+        );
         Self {
             catalog_name,
             schema_name,
             node_id,
             backend,
             engine_manager,
+            cache,
         }
     }
 
@@ -838,7 +921,7 @@ impl RemoteSchemaProvider {
 
 #[async_trait]
 impl SchemaProvider for RemoteSchemaProvider {
-    fn as_any(&self) -> &dyn Any {
+    fn as_any(&self) -> &(dyn Any + Send + Sync) {
         self
     }
 
@@ -858,36 +941,43 @@ impl SchemaProvider for RemoteSchemaProvider {
     }
 
     async fn table(&self, name: &str) -> Result<Option<TableRef>> {
-        let key = self.build_regional_table_key(name).to_string();
-        let table_opt = self
-            .backend
-            .get(key.as_bytes())
-            .await?
-            .map(|Kv(_, v)| {
-                let TableRegionalValue { engine_name, .. } =
-                    TableRegionalValue::parse(String::from_utf8_lossy(&v))
-                        .context(InvalidCatalogValueSnafu)?;
-                let reference = TableReference {
-                    catalog: &self.catalog_name,
-                    schema: &self.schema_name,
-                    table: name,
-                };
-                let engine_name = engine_name.as_deref().unwrap_or(MITO_ENGINE);
-                let engine = self
-                    .engine_manager
-                    .engine(engine_name)
-                    .context(TableEngineNotFoundSnafu { engine_name })?;
-                let table = engine
-                    .get_table(&EngineContext {}, &reference)
-                    .with_context(|_| OpenTableSnafu {
-                        table_info: reference.to_string(),
-                    })?;
-                Ok(table)
-            })
-            .transpose()?
-            .flatten();
+        let init = async {
+            let key = self.build_regional_table_key(name).to_string();
+            let table = self
+                .backend
+                .get(key.as_bytes())
+                .await?
+                .map(|Kv(_, v)| {
+                    let TableRegionalValue { engine_name, .. } =
+                        TableRegionalValue::parse(String::from_utf8_lossy(&v))
+                            .context(InvalidCatalogValueSnafu)?;
+                    let reference = TableReference {
+                        catalog: &self.catalog_name,
+                        schema: &self.schema_name,
+                        table: name,
+                    };
+                    let engine_name = engine_name.as_deref().unwrap_or(MITO_ENGINE);
+                    let engine = self
+                        .engine_manager
+                        .engine(engine_name)
+                        .context(TableEngineNotFoundSnafu { engine_name })?;
+                    let table = engine
+                        .get_table(&EngineContext {}, &reference)
+                        .with_context(|_| OpenTableSnafu {
+                            table_info: reference.to_string(),
+                        })?;
+                    Ok(table)
+                })
+                .transpose()?
+                .flatten();
 
-        Ok(table_opt)
+            convert(Ok(table))
+        };
+
+        let table: std::result::Result<TableRef, Arc<Error>> =
+            self.cache.try_get_with_by_ref(name, init).await;
+
+        re_convert(table)
     }
 
     async fn register_table(&self, name: String, table: TableRef) -> Result<Option<TableRef>> {
@@ -969,5 +1059,79 @@ impl SchemaProvider for RemoteSchemaProvider {
     async fn table_exist(&self, name: &str) -> Result<bool> {
         let key = self.build_regional_table_key(name).to_string();
         Ok(self.backend.get(key.as_bytes()).await?.is_some())
+    }
+}
+
+// TODO(fys): Moka does not seem to have an "try_optionally_get_with" api.
+// Related issue: https://github.com/moka-rs/moka/issues/254
+
+fn convert<V>(v: std::result::Result<Option<V>, Arc<Error>>) -> Result<V> {
+    match v {
+        Ok(Some(v)) => Ok(v),
+        Ok(None) => NoSuchKeySnafu {}.fail(),
+        Err(e) => GenericSnafu { msg: e.to_string() }.fail(),
+    }
+}
+
+fn re_convert<V>(v: std::result::Result<V, Arc<Error>>) -> Result<Option<V>> {
+    match v {
+        Ok(v) => Ok(Some(v)),
+        Err(e) => {
+            if matches!(e.deref(), NoSuchKey { .. }) {
+                Ok(None)
+            } else {
+                GenericSnafu { msg: e.to_string() }.fail()
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::{convert, re_convert};
+    use crate::error::Error::{self, Generic, NoSuchKey};
+    use crate::error::{GenericSnafu, NoSuchKeySnafu};
+
+    #[test]
+    fn test_result_convert() {
+        let v = Ok(Some(1));
+        let r = convert(v);
+        assert_eq!(1, r.unwrap());
+
+        let v = Ok(None::<i32>);
+        let r = convert(v);
+        assert!(matches!(r, Err(NoSuchKey { .. })));
+
+        let v: std::result::Result<Option<i32>, Arc<Error>> = Err(Arc::new(
+            GenericSnafu {
+                msg: "This is a error",
+            }
+            .build(),
+        ));
+        let r = convert(v);
+        assert!(matches!(r, Err(Generic { .. })));
+    }
+
+    #[test]
+    fn test_result_reconvert() {
+        let v = Ok(21);
+        let r = re_convert(v);
+        assert_eq!(21, r.unwrap().unwrap());
+
+        let v: std::result::Result<Option<i32>, Arc<Error>> = Err(Arc::new(
+            GenericSnafu {
+                msg: "This is a error",
+            }
+            .build(),
+        ));
+        let r = re_convert(v);
+        assert!(matches!(r, Err(Generic { .. })));
+
+        let v: std::result::Result<Option<i32>, Arc<Error>> =
+            Err(Arc::new(NoSuchKeySnafu {}.build()));
+        let r = re_convert(v);
+        assert!(r.unwrap().is_none());
     }
 }

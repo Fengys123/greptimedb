@@ -25,7 +25,7 @@ use crate::error::{NotSupportedSnafu, Result};
 pub trait SchemaProvider: Sync + Send {
     /// Returns the schema provider as [`Any`](std::any::Any)
     /// so that it can be downcast to a specific implementation.
-    fn as_any(&self) -> &(dyn Any + Send + Sync);
+    fn as_any(&self) -> &dyn Any;
 
     /// Retrieves the list of available table names in this schema.
     async fn table_names(&self) -> Result<Vec<String>>;

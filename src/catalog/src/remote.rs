@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod cache_manager;
+
 use std::fmt::Debug;
 use std::pin::Pin;
 use std::sync::Arc;

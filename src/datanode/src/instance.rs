@@ -18,7 +18,8 @@ use std::time::Duration;
 use std::{fs, path};
 
 use api::v1::meta::Role;
-use catalog::remote::MetaKvBackend;
+use catalog::remote::cache_manager::CachedCatalogManagerBuilder;
+use catalog::remote::{MetaKvBackend, RemoteCatalogManager};
 use catalog::{CatalogManager, CatalogManagerRef, RegisterTableRequest};
 use common_base::readable_size::ReadableSize;
 use common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME, MIN_USER_TABLE_ID};
@@ -189,14 +190,16 @@ impl Instance {
             }
 
             Mode::Distributed => {
-                let catalog = Arc::new(catalog::remote::RemoteCatalogManager::new(
+                let catalog = Arc::new(RemoteCatalogManager::new(
                     engine_manager.clone(),
                     opts.node_id.context(MissingNodeIdSnafu)?,
                     Arc::new(MetaKvBackend {
                         client: meta_client.as_ref().unwrap().clone(),
                     }),
                 ));
-                (catalog as CatalogManagerRef, None)
+
+                let cached_catalog = Arc::new(CachedCatalogManagerBuilder::new(catalog).build());
+                (cached_catalog as CatalogManagerRef, None)
             }
         };
 

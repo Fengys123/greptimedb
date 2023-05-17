@@ -50,7 +50,7 @@ impl InformationSchemaProvider {
 
 #[async_trait]
 impl SchemaProvider for InformationSchemaProvider {
-    fn as_any(&self) -> &(dyn Any + Send + Sync) {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 

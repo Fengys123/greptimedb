@@ -13,6 +13,8 @@ use crate::{
     SchemaProviderRef,
 };
 
+/// [CachedCatalogManager] is a proxy struct of [CatalogManager] which supports caching the results
+/// of some methods in [CatalogManager].
 #[derive(Clone)]
 pub struct CachedCatalogManager {
     catalog_cache: Arc<Cache<String, CatalogProviderRef>>,
@@ -120,6 +122,12 @@ impl CatalogManager for CachedCatalogManager {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+impl CachedCatalogManager {
+    pub fn inner_catalog_manager(&self) -> CatalogManagerRef {
+        self.catalog_manager.clone()
     }
 }
 

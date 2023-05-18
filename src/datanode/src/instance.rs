@@ -18,7 +18,7 @@ use std::time::Duration;
 use std::{fs, path};
 
 use api::v1::meta::Role;
-use catalog::remote::cache_manager::CachedCatalogManagerBuilder;
+use catalog::remote::cached_manager::CachedCatalogManagerBuilder;
 use catalog::remote::{MetaKvBackend, RemoteCatalogManager};
 use catalog::{CatalogManager, CatalogManagerRef, RegisterTableRequest};
 use common_base::readable_size::ReadableSize;

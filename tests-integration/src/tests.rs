@@ -22,6 +22,7 @@ use std::time::Duration;
 
 use api::v1::meta::Role;
 use catalog::local::{MemoryCatalogProvider, MemorySchemaProvider};
+use catalog::remote::cached_manager::CachedCatalogManager;
 use catalog::remote::{MetaKvBackend, RemoteCatalogManager};
 use client::Client;
 use common_grpc::channel_manager::ChannelManager;
@@ -231,6 +232,10 @@ async fn create_distributed_datanode(
     // create another catalog and schema for testing
     let _ = instance
         .catalog_manager()
+        .as_any()
+        .downcast_ref::<CachedCatalogManager>()
+        .unwrap()
+        .inner_catalog_manager()
         .as_any()
         .downcast_ref::<RemoteCatalogManager>()
         .unwrap()

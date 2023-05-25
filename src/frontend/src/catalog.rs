@@ -263,6 +263,7 @@ impl CatalogManager for FrontendCatalogManager {
             catalog_name: catalog.to_string(),
         }
         .to_string();
+
         Ok(self.backend.get(key.as_bytes()).await?.map(|_| {
             Arc::new(FrontendCatalogProvider {
                 catalog_name: catalog.to_string(),
@@ -340,18 +341,27 @@ impl CatalogProvider for FrontendCatalogProvider {
     }
 
     async fn schema(&self, name: &str) -> catalog::error::Result<Option<SchemaProviderRef>> {
-        let all_schemas = self.schema_names().await?;
-        if all_schemas.contains(&name.to_string()) {
-            Ok(Some(Arc::new(FrontendSchemaProvider {
-                catalog_name: self.catalog_name.clone(),
+        let catalog = &self.catalog_name;
+
+        let schema_key = SchemaKey {
+            catalog_name: catalog.clone(),
+            schema_name: name.to_string(),
+        }
+        .to_string();
+
+        let val = self.backend.get(schema_key.as_bytes()).await?;
+
+        let provider = val.map(|_| {
+            Arc::new(FrontendSchemaProvider {
+                catalog_name: catalog.clone(),
                 schema_name: name.to_string(),
                 backend: self.backend.clone(),
                 partition_manager: self.partition_manager.clone(),
                 datanode_clients: self.datanode_clients.clone(),
-            })))
-        } else {
-            Ok(None)
-        }
+            }) as Arc<dyn SchemaProvider>
+        });
+
+        Ok(provider)
     }
 }
 

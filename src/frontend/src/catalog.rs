@@ -106,6 +106,18 @@ impl FrontendCatalogManager {
 
         self.backend_cache_invalidtor.invalidate_key(tg_key).await;
     }
+
+    pub async fn invalidate_database(&self, catalog: &str, schema: &str) {
+        let schema_key = SchemaKey {
+            catalog_name: catalog.into(),
+            schema_name: schema.into(),
+        }
+        .to_string();
+
+        let key = schema_key.as_bytes();
+
+        self.backend_cache_invalidtor.invalidate_key(key).await;
+    }
 }
 
 // FIXME(hl): Frontend only needs a CatalogList, should replace with trait upcasting

@@ -463,8 +463,8 @@ impl DistInstance {
         }
 
         let key = SchemaKey {
-            catalog_name: catalog,
-            schema_name: expr.database_name,
+            catalog_name: catalog.clone(),
+            schema_name: expr.database_name.clone(),
         };
         let value = SchemaValue {};
         let client = self
@@ -485,6 +485,10 @@ impl DistInstance {
                 name: key.schema_name
             }
         );
+
+        self.catalog_manager()
+            .invalidate_database(&catalog, &expr.database_name)
+            .await;
 
         Ok(Output::AffectedRows(1))
     }

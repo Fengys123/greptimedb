@@ -278,12 +278,24 @@ impl Instance {
     ) -> Result<Output> {
         let _ = timer!(crate::metrics::DIST_WRITE_INSERTS);
         let mut success = 0;
+
+        let mut joins = vec![];
         for request in requests {
-            match self.handle_insert(request, ctx.clone()).await? {
-                Output::AffectedRows(rows) => success += rows,
-                _ => unreachable!("Insert should not yield output other than AffectedRows"),
-            }
+            let ctx_clone = ctx.clone();
+            let self_clone = self.clone();
+            let join: common_runtime::JoinHandle<Result<usize>> = tokio::spawn(async move {
+                match self_clone.handle_insert(request, ctx_clone).await? {
+                    Output::AffectedRows(rows) => Ok(rows),
+                    _ => unreachable!("Insert should not yield output other than AffectedRows"),
+                }
+            });
+            joins.push(join);
         }
+
+        for join in joins {
+            success += join.await.unwrap()?;
+        }
+
         Ok(Output::AffectedRows(success))
     }
 

@@ -37,7 +37,7 @@ use common_meta::rpc::router::{
 use common_meta::rpc::store::CompareAndPutRequest;
 use common_meta::table_name::TableName;
 use common_query::Output;
-use common_telemetry::debug;
+use common_telemetry::{debug, timer};
 use datanode::instance::sql::table_idents_to_full_name;
 use datanode::sql::SqlHandler;
 use datatypes::prelude::ConcreteDataType;
@@ -568,6 +568,7 @@ impl DistInstance {
         let table_name = &request.table_name;
         let table_ref = TableReference::full(catalog, schema, table_name);
 
+        let t1 = timer!(crate::metrics::DIST_WRITE_CATALOG_GET);
         let table = self
             .catalog_manager
             .table(catalog, schema, table_name)
@@ -576,11 +577,15 @@ impl DistInstance {
             .with_context(|| TableNotFoundSnafu {
                 table_name: table_ref.to_string(),
             })?;
+        drop(t1);
 
         let request = common_grpc_expr::insert::to_table_insert_request(catalog, schema, request)
             .context(ToTableInsertRequestSnafu)?;
 
+        let t2 = timer!(crate::metrics::DIST_WRITE_TABLE_INSERT);
         let affected_rows = table.insert(request).await.context(TableSnafu)?;
+        drop(t2);
+
         Ok(Output::AffectedRows(affected_rows))
     }
 

@@ -276,6 +276,7 @@ impl Instance {
         requests: Vec<InsertRequest>,
         ctx: QueryContextRef,
     ) -> Result<Output> {
+        let _ = timer!(crate::metrics::DIST_WRITE_INSERTS);
         let mut success = 0;
         for request in requests {
             match self.handle_insert(request, ctx.clone()).await? {
@@ -287,8 +288,12 @@ impl Instance {
     }
 
     async fn handle_insert(&self, request: InsertRequest, ctx: QueryContextRef) -> Result<Output> {
+        let _ = timer!(crate::metrics::DIST_WRITE_INSERT);
+
+        let t0 = timer!(crate::metrics::DIST_WRITE_CREATE_TABLE);
         self.create_or_alter_table_on_demand(ctx.clone(), &request)
             .await?;
+        drop(t0);
 
         let query = Request::Insert(request);
         GrpcQueryHandler::do_query(&*self.grpc_query_handler, query, ctx).await

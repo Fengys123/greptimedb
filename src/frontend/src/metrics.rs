@@ -21,4 +21,11 @@ pub(crate) const METRIC_RUN_SCRIPT_ELAPSED: &str = "frontend.run_script_elapsed"
 pub const DIST_CREATE_TABLE: &str = "frontend.dist.create_table";
 pub const DIST_CREATE_TABLE_IN_META: &str = "frontend.dist.create_table.update_meta";
 pub const DIST_CREATE_TABLE_IN_DATANODE: &str = "frontend.dist.create_table.invoke_datanode";
+
 pub const DIST_INGEST_ROW_COUNT: &str = "frontend.dist.ingest_rows";
+
+pub const DIST_WRITE_INSERTS: &str = "frontend.dist_write.inserts";
+pub const DIST_WRITE_INSERT: &str = "frontend.dist_write.insert";
+pub const DIST_WRITE_CREATE_TABLE: &str = "frontend.dist_write.create.table";
+pub const DIST_WRITE_CATALOG_GET: &str = "frontend.dist_write.catalog.get";
+pub const DIST_WRITE_TABLE_INSERT: &str = "frontend.dist_write.table.insert";

@@ -22,7 +22,7 @@ use async_trait::async_trait;
 use catalog::helper::{TableGlobalKey, TableGlobalValue};
 use client::Database;
 use common_error::prelude::BoxedError;
-use common_meta::key::TableRouteKey;
+use common_meta::meta_data::TableRouteKey;
 use common_meta::table_name::TableName;
 use common_query::error::Result as QueryResult;
 use common_query::logical_plan::Expr;

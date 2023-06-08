@@ -14,7 +14,7 @@
 
 use std::str::FromStr;
 
-use common_meta::key::TABLE_ROUTE_PREFIX;
+use common_meta::meta_data::TABLE_ROUTE_PREFIX;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};

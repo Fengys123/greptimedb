@@ -14,7 +14,7 @@
 
 use api::v1::meta::{PutRequest, TableRouteValue};
 use catalog::helper::{TableGlobalKey, TableGlobalValue};
-use common_meta::key::TableRouteKey;
+use common_meta::meta_data::TableRouteKey;
 use snafu::{OptionExt, ResultExt};
 
 use crate::error::{

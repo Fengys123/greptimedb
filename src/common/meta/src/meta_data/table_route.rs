@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use api::v1::meta::TableName;
+use std::fmt::Display;
 
-use crate::key::to_removed_key;
+use api::v1::meta::TableName;
+use serde::Serializer;
+
+use crate::meta_data::common::to_removed_key;
 
 pub const TABLE_ROUTE_PREFIX: &str = "__meta_table_route";
 
@@ -35,19 +38,32 @@ impl<'a> TableRouteKey<'a> {
         }
     }
 
-    pub fn prefix(&self) -> String {
-        format!(
-            "{}-{}-{}-{}",
-            TABLE_ROUTE_PREFIX, self.catalog_name, self.schema_name, self.table_name
-        )
-    }
-
     pub fn key(&self) -> String {
-        format!("{}-{}", self.prefix(), self.table_id)
+        self.to_string()
     }
 
     pub fn removed_key(&self) -> String {
-        to_removed_key(&self.key())
+        to_removed_key(&self.to_string())
+    }
+}
+
+impl Display for TableRouteKey<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(TABLE_ROUTE_PREFIX)?;
+        f.write_str("-")?;
+        f.write_str(self.catalog_name)?;
+        f.write_str("-")?;
+        f.write_str(self.schema_name)?;
+        f.write_str("-")?;
+        f.write_str(self.table_name)?;
+        f.write_str("-")?;
+        f.serialize_u64(self.table_id)
+    }
+}
+
+impl From<TableRouteKey<'_>> for Vec<u8> {
+    fn from(key: TableRouteKey<'_>) -> Self {
+        key.to_string().into()
     }
 }
 
@@ -65,9 +81,6 @@ mod tests {
             schema_name: "public",
             table_name: "demo",
         };
-
-        let prefix = key.prefix();
-        assert_eq!("__meta_table_route-greptime-public-demo", prefix);
 
         let key_string = key.key();
         assert_eq!("__meta_table_route-greptime-public-demo-123", key_string);

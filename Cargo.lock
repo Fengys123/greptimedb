@@ -1808,6 +1808,8 @@ dependencies = [
  "common-telemetry",
  "common-time",
  "datatypes",
+ "lazy_static",
+ "regex",
  "serde",
  "serde_json",
  "snafu",

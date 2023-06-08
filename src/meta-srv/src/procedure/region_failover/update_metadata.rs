@@ -15,7 +15,7 @@
 use api::v1::meta::{TableName, TableRouteValue};
 use async_trait::async_trait;
 use catalog::helper::TableGlobalKey;
-use common_meta::key::TableRouteKey;
+use common_meta::meta_data::TableRouteKey;
 use common_meta::peer::Peer;
 use common_meta::rpc::router::TableRoute;
 use common_meta::RegionIdent;
@@ -211,7 +211,7 @@ impl State for UpdateRegionMetadata {
 mod tests {
     use api::v1::meta::TableRouteValue;
     use catalog::helper::TableGlobalValue;
-    use common_meta::key::TableRouteKey;
+    use common_meta::meta_data::TableRouteKey;
 
     use super::super::tests::{TestingEnv, TestingEnvBuilder};
     use super::{State, *};

@@ -20,7 +20,7 @@ use api::v1::meta::{
     RouteResponse, Table, TableRoute, TableRouteValue,
 };
 use catalog::helper::{TableGlobalKey, TableGlobalValue};
-use common_meta::key::TableRouteKey;
+use common_meta::meta_data::TableRouteKey;
 use common_meta::table_name::TableName;
 use common_telemetry::{timer, warn};
 use snafu::{ensure, OptionExt, ResultExt};

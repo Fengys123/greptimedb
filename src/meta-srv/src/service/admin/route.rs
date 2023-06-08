@@ -15,7 +15,7 @@
 use std::collections::HashMap;
 
 use api::v1::meta::{RangeRequest, RangeResponse, TableRouteValue};
-use common_meta::key::TABLE_ROUTE_PREFIX;
+use common_meta::meta_data::TABLE_ROUTE_PREFIX;
 use prost::Message;
 use snafu::{OptionExt, ResultExt};
 use tonic::codegen::http;

@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 use session::context::UserInfo;
 
 use crate::http::{ApiState, JsonResponse};
-use crate::metrics::{JEMALLOC_COLLECTOR, PROCESS_COLLECTOR};
+use crate::metrics::JEMALLOC_COLLECTOR;
 use crate::metrics_handler::MetricsHandler;
 
 #[derive(Debug, Default, Serialize, Deserialize, JsonSchema)]
@@ -136,7 +136,9 @@ pub async fn metrics(
     Query(_params): Query<HashMap<String, String>>,
 ) -> String {
     // Collect process metrics.
-    PROCESS_COLLECTOR.collect();
+    #[cfg(feature = "process-metrics")]
+    crate::metrics::PROCESS_COLLECTOR.collect();
+
     if let Some(c) = JEMALLOC_COLLECTOR.as_ref() {
         if let Err(e) = c.update() {
             error!(e; "Failed to update jemalloc metrics");

@@ -222,7 +222,7 @@ pub enum Error {
     #[snafu(display("Failed to dump profile data, source: {}", source))]
     DumpProfileData {
         location: Location,
-        source: common_mem_prof::error::Error,
+        source: common_alloc::error::Error,
     },
 
     #[snafu(display("Invalid prepare statement: {}", err_msg))]

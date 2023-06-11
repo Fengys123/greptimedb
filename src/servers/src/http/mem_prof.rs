@@ -24,7 +24,7 @@ pub async fn mem_prof_handler() -> crate::error::Result<impl IntoResponse> {
 
     Ok((
         StatusCode::OK,
-        common_mem_prof::dump_profile()
+        common_alloc::dump_profile()
             .await
             .context(DumpProfileDataSnafu)?,
     ))

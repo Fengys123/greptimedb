@@ -4,6 +4,10 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+# default = ["li_no_need"]
+li_no_need = ["dep:substrait_proto", "dep:datafusion-substrait"]
+
 [dependencies]
 async-recursion = "1.0"
 async-trait.workspace = true
@@ -14,7 +18,7 @@ common-error = { path = "../error" }
 common-telemetry = { path = "../telemetry" }
 datafusion.workspace = true
 datafusion-expr.workspace = true
-datafusion-substrait.workspace = true
+datafusion-substrait = { git = "https://github.com/waynexia/arrow-datafusion.git", rev = "63e52dde9e44cac4b1f6c6e6b6bf6368ba3bd323", optional = true }
 datatypes = { path = "../../datatypes" }
 futures = "0.3"
 prost.workspace = true
@@ -25,6 +29,7 @@ table = { path = "../../table" }
 [dependencies.substrait_proto]
 package = "substrait"
 version = "0.10"
+optional = true
 
 [dev-dependencies]
 datatypes = { path = "../../datatypes" }

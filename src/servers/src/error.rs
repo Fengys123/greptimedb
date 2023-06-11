@@ -274,11 +274,8 @@ pub enum Error {
         source: common_pprof::Error,
     },
 
-    #[snafu(display("Failed to update jemalloc metrics, source: {source}, location: {location}"))]
-    UpdateJemallocMetrics {
-        source: tikv_jemalloc_ctl::Error,
-        location: Location,
-    },
+    #[snafu(display("Failed to update jemalloc metrics, location: {location}"))]
+    UpdateJemallocMetrics { location: Location },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

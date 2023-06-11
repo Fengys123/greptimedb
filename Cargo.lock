@@ -8576,7 +8576,6 @@ dependencies = [
  "sql",
  "strum",
  "table",
- "tikv-jemalloc-ctl",
  "tokio",
  "tokio-postgres",
  "tokio-postgres-rustls",

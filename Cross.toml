@@ -2,5 +2,5 @@
 build-std = true
 xargo = true
 zig = false
-pre-build = "install.sh"
-# image = "ghcr.io/cross-rs/aarch64-linux-android:local"   
+# pre-build = "install.sh"
+image = "ghcr.io/cross-rs/aarch64-linux-android:local"   

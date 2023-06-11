@@ -17,16 +17,16 @@ use std::time::Instant;
 
 use common_telemetry::error;
 use hyper::Body;
-use metrics::gauge;
+// use metrics::gauge;
 use once_cell::sync::Lazy;
-use snafu::ResultExt;
-use tikv_jemalloc_ctl::stats::{allocated_mib, resident_mib};
-use tikv_jemalloc_ctl::{epoch, epoch_mib, stats};
+// use snafu::ResultExt;
+// use tikv_jemalloc_ctl::stats::{allocated_mib, resident_mib};
+// use tikv_jemalloc_ctl::{epoch, epoch_mib, stats};
 use tonic::body::BoxBody;
 use tower::{Layer, Service};
 
 use crate::error;
-use crate::error::UpdateJemallocMetricsSnafu;
+// use crate::error::UpdateJemallocMetricsSnafu;
 
 pub(crate) const METRIC_DB_LABEL: &str = "db";
 pub(crate) const METRIC_CODE_LABEL: &str = "code";
@@ -66,8 +66,8 @@ pub(crate) const METRIC_GRPC_REQUESTS_ELAPSED: &str = "servers.grpc_requests_ela
 pub(crate) const METRIC_METHOD_LABEL: &str = "method";
 pub(crate) const METRIC_PATH_LABEL: &str = "path";
 pub(crate) const METRIC_STATUS_LABEL: &str = "status";
-pub(crate) const METRIC_JEMALLOC_RESIDENT: &str = "sys.jemalloc.resident";
-pub(crate) const METRIC_JEMALLOC_ALLOCATED: &str = "sys.jemalloc.allocated";
+// pub(crate) const METRIC_JEMALLOC_RESIDENT: &str = "sys.jemalloc.resident";
+// pub(crate) const METRIC_JEMALLOC_ALLOCATED: &str = "sys.jemalloc.allocated";
 
 /// Prometheus style process metrics collector.
 #[cfg(feature = "process-metrics")]
@@ -94,29 +94,30 @@ pub(crate) static JEMALLOC_COLLECTOR: Lazy<Option<JemallocCollector>> = Lazy::ne
 });
 
 pub(crate) struct JemallocCollector {
-    epoch: epoch_mib,
-    allocated: allocated_mib,
-    resident: resident_mib,
+    // epoch: epoch_mib,
+    // allocated: allocated_mib,
+    // resident: resident_mib,
 }
 
 impl JemallocCollector {
     pub(crate) fn try_new() -> error::Result<Self> {
-        let e = epoch::mib().context(UpdateJemallocMetricsSnafu)?;
-        let allocated = stats::allocated::mib().context(UpdateJemallocMetricsSnafu)?;
-        let resident = stats::resident::mib().context(UpdateJemallocMetricsSnafu)?;
-        Ok(Self {
-            epoch: e,
-            allocated,
-            resident,
-        })
+        // let e = epoch::mib().context(UpdateJemallocMetricsSnafu)?;
+        // let allocated = stats::allocated::mib().context(UpdateJemallocMetricsSnafu)?;
+        // let resident = stats::resident::mib().context(UpdateJemallocMetricsSnafu)?;
+        // Ok(Self {
+        //     epoch: e,
+        //     allocated,
+        //     resident,
+        // })
+        todo!()
     }
 
     pub(crate) fn update(&self) -> error::Result<()> {
-        self.epoch.advance().context(UpdateJemallocMetricsSnafu)?;
-        let allocated = self.allocated.read().context(UpdateJemallocMetricsSnafu)?;
-        let resident = self.resident.read().context(UpdateJemallocMetricsSnafu)?;
-        gauge!(METRIC_JEMALLOC_ALLOCATED, allocated as f64);
-        gauge!(METRIC_JEMALLOC_RESIDENT, resident as f64);
+        // self.epoch.advance().context(UpdateJemallocMetricsSnafu)?;
+        // let allocated = self.allocated.read().context(UpdateJemallocMetricsSnafu)?;
+        // let resident = self.resident.read().context(UpdateJemallocMetricsSnafu)?;
+        // gauge!(METRIC_JEMALLOC_ALLOCATED, allocated as f64);
+        // gauge!(METRIC_JEMALLOC_RESIDENT, resident as f64);
         Ok(())
     }
 }

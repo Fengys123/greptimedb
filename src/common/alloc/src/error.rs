@@ -23,6 +23,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum Error {
+    #[cfg(all(unix, feature = "jemalloc"))]
     #[snafu(display("Failed to read OPT_PROF, source: {}", source))]
     ReadOptProf { source: tikv_jemalloc_ctl::Error },
 
@@ -38,6 +39,7 @@ pub enum Error {
         source: std::io::Error,
     },
 
+    #[cfg(all(unix, feature = "jemalloc"))]
     #[snafu(display(
         "Failed to dump profiling data to temp file: {:?}, source: {}",
         path,
@@ -52,10 +54,12 @@ pub enum Error {
 impl ErrorExt for Error {
     fn status_code(&self) -> StatusCode {
         match self {
+            #[cfg(all(unix, feature = "jemalloc"))]
             Error::ReadOptProf { .. } => StatusCode::Internal,
             Error::ProfilingNotEnabled => StatusCode::InvalidArguments,
             Error::BuildTempPath { .. } => StatusCode::Internal,
             Error::OpenTempFile { .. } => StatusCode::StorageUnavailable,
+            #[cfg(all(unix, feature = "jemalloc"))]
             Error::DumpProfileData { .. } => StatusCode::StorageUnavailable,
         }
     }

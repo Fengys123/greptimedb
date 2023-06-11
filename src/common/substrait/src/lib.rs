@@ -15,6 +15,10 @@
 #![feature(let_chains)]
 #![feature(trait_upcasting)]
 
+#[cfg(feature = "li_no_need")]
+mod df_substrait;
+#[cfg(not(feature = "li_no_need"))]
+#[path = "noop.rs"]
 mod df_substrait;
 pub mod error;
 

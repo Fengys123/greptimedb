@@ -11,7 +11,6 @@ tempfile = "3.4"
 tokio.workspace = true
 
 [features]
-default = ["jemalloc"]
 jemalloc = ["tikv-jemallocator", "tikv-jemalloc-ctl", "tikv-jemalloc-sys"]
 
 [dependencies.tikv-jemalloc-ctl]

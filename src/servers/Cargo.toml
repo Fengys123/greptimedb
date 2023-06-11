@@ -6,7 +6,7 @@ license.workspace = true
 
 [features]
 pprof = ["dep:common-pprof"]
-mem-prof = ["dep:common-mem-prof"]
+mem-prof = ["dep:common-alloc"]
 dashboard = []
 
 [dependencies]
@@ -20,12 +20,12 @@ base64 = "0.13"
 bytes = "1.2"
 catalog = { path = "../catalog" }
 chrono.workspace = true
+common-alloc = { path = "../common/alloc", optional = true }
 common-base = { path = "../common/base" }
 common-catalog = { path = "../common/catalog" }
 common-error = { path = "../common/error" }
 common-grpc = { path = "../common/grpc" }
 common-grpc-expr = { path = "../common/grpc-expr" }
-common-mem-prof = { path = "../common/mem-prof", optional = true }
 common-pprof = { path = "../common/pprof", optional = true }
 common-query = { path = "../common/query" }
 common-recordbatch = { path = "../common/recordbatch" }

@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod error;
-
 use std::ffi::{c_char, CString};
 use std::path::PathBuf;
 
@@ -22,8 +20,14 @@ use tokio::io::AsyncReadExt;
 
 use crate::error::{
     BuildTempPathSnafu, DumpProfileDataSnafu, OpenTempFileSnafu, ProfilingNotEnabledSnafu,
-    ReadOptProfSnafu,
+    ReadOptProfSnafu, self,
 };
+
+pub type Allocator = tikv_jemallocator::Jemalloc;
+
+pub const fn allocator() -> Allocator {
+    tikv_jemallocator::Jemalloc
+}
 
 const PROF_DUMP: &[u8] = b"prof.dump\0";
 const OPT_PROF: &[u8] = b"opt.prof\0";

@@ -109,7 +109,7 @@ impl JemallocCollector {
         //     allocated,
         //     resident,
         // })
-        todo!()
+        Ok(Self {})
     }
 
     pub(crate) fn update(&self) -> error::Result<()> {

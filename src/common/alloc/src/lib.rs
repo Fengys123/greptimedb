@@ -8,3 +8,5 @@ pub use impement::*;
 
 #[global_allocator]
 static ALLOC: impement::Allocator = impement::allocator();
+
+pub type AllocStats = Vec<(&'static str, usize)>;

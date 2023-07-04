@@ -16,12 +16,14 @@ use std::ffi::{c_char, CString};
 use std::path::PathBuf;
 
 use snafu::{ensure, ResultExt};
+use tikv_jemalloc_ctl::{epoch, stats};
 use tokio::io::AsyncReadExt;
 
 use crate::error::{
-    BuildTempPathSnafu, DumpProfileDataSnafu, OpenTempFileSnafu, ProfilingNotEnabledSnafu,
-    ReadOptProfSnafu, self,
+    self, BuildTempPathSnafu, DumpProfileDataSnafu, OpenTempFileSnafu, ProfilingNotEnabledSnafu,
+    ReadOptProfSnafu,
 };
+use crate::AllocStats;
 
 pub type Allocator = tikv_jemallocator::Jemalloc;
 
@@ -75,4 +77,27 @@ pub async fn dump_profile() -> error::Result<Vec<u8>> {
 fn is_prof_enabled() -> error::Result<bool> {
     // safety: OPT_PROF variable, if present, is always a boolean value.
     Ok(unsafe { tikv_jemalloc_ctl::raw::read::<bool>(OPT_PROF).context(ReadOptProfSnafu)? })
+}
+
+pub fn fetch_stats() -> error::Result<Option<AllocStats>> {
+    // Stats are cached. Need to advance epoch to refresh.
+    // epoch::advance()?;
+    todo!()
+
+    // Ok(Some(vec![
+    //     ("allocated", stats::allocated::read()?),
+    //     ("active", stats::active::read()?),
+    //     ("metadata", stats::metadata::read()?),
+    //     ("resident", stats::resident::read()?),
+    //     ("mapped", stats::mapped::read()?),
+    //     ("retained", stats::retained::read()?),
+    //     (
+    //         "dirty",
+    //         stats::resident::read()? - stats::active::read()? - stats::metadata::read()?,
+    //     ),
+    //     (
+    //         "fragmentation",
+    //         stats::active::read()? - stats::allocated::read()?,
+    //     ),
+    // ]))
 }

@@ -16,6 +16,7 @@ use std::str::Utf8Error;
 
 use common_error::ext::{BoxedError, ErrorExt};
 use common_error::status_code::StatusCode;
+use prost::DecodeError;
 use serde_json::error::Error as JsonError;
 use snafu::{Location, Snafu};
 use store_api::storage::RegionNumber;
@@ -134,6 +135,12 @@ pub enum Error {
 
     #[snafu(display("External error: {}", err_msg))]
     External { location: Location, err_msg: String },
+
+    #[snafu(display("Failed to decode table route value, source: {}", source))]
+    DecodeTableRoute {
+        location: Location,
+        source: DecodeError,
+    },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -159,6 +166,7 @@ impl ErrorExt for Error {
             | CatalogAlreadyExists { .. }
             | SchemaAlreadyExists { .. }
             | TableNotExist { .. }
+            | DecodeTableRoute { .. }
             | RenameTable { .. } => StatusCode::Internal,
 
             EncodeJson { .. }

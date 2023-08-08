@@ -106,6 +106,7 @@ pub(crate) fn fill_table_routes(
         let TableRouteValue {
             peers,
             mut table_route,
+            version: _,
         } = trv;
         if let Some(table_route) = &mut table_route {
             for rr in &mut table_route.region_routes {

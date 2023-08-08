@@ -122,6 +122,7 @@ impl CreateTableProcedure {
         let table_route_value = TableRouteValue {
             peers,
             table_route: Some(table_route),
+            version: 0,
         };
 
         let manager = &self.context.table_metadata_manager;

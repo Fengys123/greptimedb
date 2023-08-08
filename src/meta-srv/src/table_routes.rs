@@ -215,6 +215,7 @@ pub(crate) mod tests {
         let value = TableRouteValue {
             peers,
             table_route: Some(table_route),
+            version: 0,
         };
         put_table_route_value(kv_store, &key, value.clone())
             .await

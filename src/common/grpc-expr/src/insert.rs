@@ -216,6 +216,9 @@ fn collect_column_values(column_datatype: ColumnDataType, values: &Values) -> Ve
                 Time::new_nanosecond(*v)
             ))
         }
+        ColumnDataType::IntervalYearMonth => todo!(),
+        ColumnDataType::IntervalDayTime => todo!(),
+        ColumnDataType::IntervalMonthDayNano => todo!(),
     }
 }
 

@@ -75,6 +75,9 @@ impl From<ColumnDataTypeWrapper> for ConcreteDataType {
             ColumnDataType::TimeMillisecond => ConcreteDataType::time_millisecond_datatype(),
             ColumnDataType::TimeMicrosecond => ConcreteDataType::time_microsecond_datatype(),
             ColumnDataType::TimeNanosecond => ConcreteDataType::time_nanosecond_datatype(),
+            ColumnDataType::IntervalYearMonth => todo!(),
+            ColumnDataType::IntervalDayTime => todo!(),
+            ColumnDataType::IntervalMonthDayNano => todo!(),
         }
     }
 }
@@ -216,6 +219,9 @@ pub fn values_with_capacity(datatype: ColumnDataType, capacity: usize) -> Values
             time_nanosecond_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
+        ColumnDataType::IntervalYearMonth => todo!(),
+        ColumnDataType::IntervalDayTime => todo!(),
+        ColumnDataType::IntervalMonthDayNano => todo!(),
     }
 }
 

@@ -165,6 +165,7 @@ impl UpdateRegionMetadata {
         let value = TableRouteValue {
             peers,
             table_route: Some(table_route),
+            version: 0,
         };
         table_routes::put_table_route_value(&ctx.selector_ctx.kv_store, &key, value).await?;
         Ok(())

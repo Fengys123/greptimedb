@@ -53,7 +53,7 @@ pub mod schema_name;
 pub mod table_info;
 pub mod table_name;
 pub mod table_region;
-mod table_route;
+pub mod table_route;
 
 use std::sync::Arc;
 
@@ -68,7 +68,7 @@ use table_region::{TableRegionKey, TableRegionManager, TableRegionValue};
 use self::catalog_name::CatalogNameValue;
 use self::schema_name::SchemaNameValue;
 use crate::error::{InvalidTableMetadataSnafu, Result, SerdeJsonSnafu};
-pub use crate::key::table_route::{TableRouteKey, TABLE_ROUTE_PREFIX};
+pub use crate::key::table_route::{TableRouteKey, TableRouteInfo, TableRouteManager, TABLE_ROUTE_PREFIX};
 use crate::kv_backend::KvBackendRef;
 
 pub const REMOVED_PREFIX: &str = "__removed";
@@ -125,6 +125,7 @@ pub struct TableMetadataManager {
     table_info_manager: TableInfoManager,
     table_region_manager: TableRegionManager,
     datanode_table_manager: DatanodeTableManager,
+    table_route_manager: TableRouteManager,
 }
 
 impl TableMetadataManager {
@@ -133,7 +134,8 @@ impl TableMetadataManager {
             table_name_manager: TableNameManager::new(kv_backend.clone()),
             table_info_manager: TableInfoManager::new(kv_backend.clone()),
             table_region_manager: TableRegionManager::new(kv_backend.clone()),
-            datanode_table_manager: DatanodeTableManager::new(kv_backend),
+            datanode_table_manager: DatanodeTableManager::new(kv_backend.clone()),
+            table_route_manager: TableRouteManager::new(kv_backend),
         }
     }
 
@@ -151,6 +153,10 @@ impl TableMetadataManager {
 
     pub fn datanode_table_manager(&self) -> &DatanodeTableManager {
         &self.datanode_table_manager
+    }
+
+    pub fn table_route_manager(&self) -> &TableRouteManager {
+        &self.table_route_manager
     }
 }
 

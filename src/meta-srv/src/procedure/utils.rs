@@ -28,6 +28,7 @@ pub fn build_table_route_value(table_route: TableRoute) -> Result<TableRouteValu
     Ok(TableRouteValue {
         peers,
         table_route: Some(table_route),
+        version: 0,
     })
 }
 

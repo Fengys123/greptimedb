@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod common_txn;
 mod etcd;
 
 use common_error::ext::ErrorExt;
@@ -100,6 +101,15 @@ pub struct TxnRequest {
     pub failure: Vec<TxnOp>,
 }
 
+impl TxnRequest {
+    // Safety: you need to make sure that the [TxnRequest] after append behaves as you expect.
+    pub unsafe fn append_with_uncheck(&mut self, mut other: TxnRequest) {
+        self.compare.append(&mut other.compare);
+        self.success.append(&mut other.success);
+        self.failure.append(&mut other.failure);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TxnOpResponse {
     ResponsePut(PutResponse),
@@ -163,6 +173,17 @@ impl Txn {
     }
 }
 
+impl From<TxnRequest> for Txn {
+    fn from(req: TxnRequest) -> Self {
+        Self {
+            req,
+            c_when: true,
+            c_then: true,
+            c_else: true,
+        }
+    }
+}
+
 impl From<Txn> for TxnRequest {
     fn from(txn: Txn) -> Self {
         txn.req
@@ -179,6 +200,53 @@ mod tests {
     use crate::kv_backend::KvBackendRef;
     use crate::rpc::store::PutRequest;
     use crate::rpc::KeyValue;
+
+    #[test]
+    fn test_txn_req_to_txn() {
+        let txn_req = TxnRequest {
+            compare: vec![Compare::with_value(vec![1], CompareOp::Equal, vec![1])],
+            success: vec![TxnOp::Put(vec![1], vec![1])],
+            failure: vec![TxnOp::Put(vec![1], vec![2])],
+        };
+        let txn: Txn = txn_req.clone().into();
+
+        let expected = Txn {
+            req: txn_req.clone(),
+            c_when: true,
+            c_then: true,
+            c_else: true,
+        };
+        assert_eq!(expected, txn);
+    }
+
+    #[test]
+    fn test_append_with_uncheck() {
+        let mut txn_req_1 = TxnRequest {
+            compare: vec![Compare::with_value(vec![1], CompareOp::Equal, vec![1])],
+            success: vec![TxnOp::Put(vec![1], vec![1])],
+            failure: vec![TxnOp::Put(vec![1], vec![2])],
+        };
+        let txn_req_2 = TxnRequest {
+            compare: vec![Compare::with_value(vec![2], CompareOp::Equal, vec![2])],
+            success: vec![TxnOp::Put(vec![3], vec![3])],
+            failure: vec![TxnOp::Put(vec![3], vec![2])],
+        };
+
+        unsafe {
+            txn_req_1.append_with_uncheck(txn_req_2);
+        }
+
+        let expected = TxnRequest {
+            compare: vec![
+                Compare::with_value(vec![1], CompareOp::Equal, vec![1]),
+                Compare::with_value(vec![2], CompareOp::Equal, vec![2]),
+            ],
+            success: vec![TxnOp::Put(vec![1], vec![1]), TxnOp::Put(vec![3], vec![3])],
+            failure: vec![TxnOp::Put(vec![1], vec![2]), TxnOp::Put(vec![3], vec![2])],
+        };
+
+        assert_eq!(expected, txn_req_1);
+    }
 
     #[test]
     fn test_compare() {

@@ -15,6 +15,7 @@
 use api::v1::meta::{TableName as PbTableName, TableRouteValue};
 use async_trait::async_trait;
 use common_meta::key::TableRouteKey;
+use common_meta::kv_backend::txn::TxnRequest;
 use common_meta::peer::Peer;
 use common_meta::rpc::router::TableRoute;
 use common_meta::RegionIdent;
@@ -51,6 +52,10 @@ impl UpdateRegionMetadata {
         let key = table_metadata_lock_key(failed_region);
         let key = ctx.dist_lock.lock(key, Opts::default()).await?;
 
+        let _update_tr_txn = self
+            .update_table_region_value_txn(ctx, failed_region)
+            .await?;
+
         self.update_table_region_value(ctx, failed_region).await?;
 
         self.update_region_placement(ctx, failed_region).await?;
@@ -59,6 +64,43 @@ impl UpdateRegionMetadata {
 
         ctx.dist_lock.unlock(key).await?;
         Ok(())
+    }
+
+    async fn update_table_region_value_txn(
+        &self,
+        ctx: &RegionFailoverContext,
+        failed_region: &RegionIdent,
+    ) -> Result<TxnRequest> {
+        let table_region_manager = ctx.table_metadata_manager.table_region_manager();
+
+        let table_ident = &failed_region.table_ident;
+        let table_id = table_ident.table_id;
+        let value = table_region_manager
+            .get(table_id)
+            .await
+            .context(TableRouteConversionSnafu)?
+            .with_context(|| TableNotFoundSnafu {
+                name: table_ident.to_string(),
+            })?;
+        let mut region_distribution = value.region_distribution.clone();
+
+        if let Some(mut region_numbers) = region_distribution.remove(&failed_region.datanode_id) {
+            region_numbers.retain(|x| *x != failed_region.region_number);
+
+            if !region_numbers.is_empty() {
+                region_distribution.insert(failed_region.datanode_id, region_numbers);
+            }
+        }
+
+        let region_numbers = region_distribution
+            .entry(self.candidate.id)
+            .or_insert_with(Vec::new);
+        region_numbers.push(failed_region.region_number);
+
+        // TODO(fys): remove unwrap()
+        Ok(table_region_manager
+            .compare_and_put_txn(table_id, Some(value.clone()), region_distribution.clone())
+            .unwrap())
     }
 
     async fn update_table_region_value(

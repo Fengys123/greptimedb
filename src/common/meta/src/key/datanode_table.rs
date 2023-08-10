@@ -20,7 +20,7 @@ use table::metadata::TableId;
 use super::{DATANODE_TABLE_KEY_PATTERN, DATANODE_TABLE_KEY_PREFIX};
 use crate::error::{InvalidTableMetadataSnafu, MoveRegionSnafu, Result, UnexpectedSnafu};
 use crate::key::{to_removed_key, TableMetaKey};
-use crate::kv_backend::txn::{Compare, CompareOp, Txn, TxnOp};
+use crate::kv_backend::txn::{Compare, CompareOp, TxnOp, TxnRequest};
 use crate::kv_backend::KvBackendRef;
 use crate::rpc::store::{BatchGetRequest, CompareAndPutRequest, MoveValueRequest, RangeRequest};
 use crate::DatanodeId;
@@ -148,13 +148,13 @@ impl DatanodeTableManager {
         Ok(())
     }
 
-    pub async fn move_region(
+    pub async fn move_region_txn(
         &self,
         from_datanode: DatanodeId,
         to_datanode: DatanodeId,
         table_id: TableId,
         region: RegionNumber,
-    ) -> Result<()> {
+    ) -> Result<TxnRequest> {
         let from_key = DatanodeTableKey::new(from_datanode, table_id);
         let to_key = DatanodeTableKey::new(to_datanode, table_id);
         let mut kvs = self
@@ -239,8 +239,25 @@ impl DatanodeTableManager {
             operations.push(TxnOp::Put(to_key.as_raw_key(), v.try_as_raw_value()?));
         }
 
-        let txn = Txn::new().when(compares).and_then(operations);
-        let resp = self.kv_backend.txn(txn).await?;
+        Ok(TxnRequest {
+            compare: compares,
+            success: operations,
+            failure: vec![],
+        })
+    }
+
+    pub async fn move_region(
+        &self,
+        from_datanode: DatanodeId,
+        to_datanode: DatanodeId,
+        table_id: TableId,
+        region: RegionNumber,
+    ) -> Result<()> {
+        let txn_req = self
+            .move_region_txn(from_datanode, to_datanode, table_id, region)
+            .await?;
+
+        let resp = self.kv_backend.txn(txn_req.into()).await?;
         ensure!(
             resp.succeeded,
             MoveRegionSnafu {

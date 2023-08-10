@@ -22,6 +22,7 @@ use table::metadata::TableId;
 use super::TABLE_REGION_KEY_PREFIX;
 use crate::error::{Result, UnexpectedSnafu};
 use crate::key::{to_removed_key, TableMetaKey};
+use crate::kv_backend::txn::TxnRequest;
 use crate::kv_backend::KvBackendRef;
 use crate::rpc::store::{CompareAndPutRequest, MoveValueRequest};
 use crate::DatanodeId;
@@ -105,6 +106,32 @@ impl TableRegionManager {
         Ok(())
     }
 
+    pub fn compare_and_put_txn(
+        &self,
+        table_id: TableId,
+        expect: Option<TableRegionValue>,
+        region_distribution: RegionDistribution,
+    ) -> Result<TxnRequest> {
+        let key = TableRegionKey::new(table_id);
+        let raw_key = key.as_raw_key();
+
+        let (expect, version) = if let Some(x) = expect {
+            (x.try_as_raw_value()?, x.version + 1)
+        } else {
+            (vec![], 0)
+        };
+
+        let value = TableRegionValue {
+            region_distribution,
+            version,
+        };
+        let raw_value = value.try_as_raw_value()?;
+
+        Ok(TxnRequest::build_compare_and_put_txn(
+            raw_key, expect, raw_value,
+        ))
+    }
+
     /// Compare and put value of key. `expect` is the expected value, if backend's current value associated
     /// with key is the same as `expect`, the value will be updated to `val`.
     ///
@@ -112,6 +139,7 @@ impl TableRegionManager {
     /// - If associated value is not the same as `expect`, no value will be updated and an `Ok(Err(Vec<u8>))`
     /// will be returned, the `Err(Vec<u8>)` indicates the current associated value of key.
     /// - If any error happens during operation, an `Err(Error)` will be returned.
+    // TODO(fys): simplify `compare_and_put` with `compare_and_put_txn`
     pub async fn compare_and_put(
         &self,
         table_id: TableId,

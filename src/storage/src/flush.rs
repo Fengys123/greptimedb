@@ -315,6 +315,7 @@ impl<S: LogStore> FlushJob<S> {
             compaction_time_window: None,
         };
 
+        // TODO(fys): remove it
         self.writer
             .write_edit_and_apply(
                 &self.wal,

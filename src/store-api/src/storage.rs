@@ -38,7 +38,8 @@ pub use self::engine::{
 };
 pub use self::metadata::RegionMeta;
 pub use self::region::{
-    CloseContext, CompactContext, FlushContext, FlushReason, Region, RegionStat, WriteContext,
+    AppendSSTRequest, CloseContext, CompactContext, FlushContext, FlushReason, Region, RegionStat,
+    WriteContext,
 };
 pub use self::requests::{
     AddColumn, AlterOperation, AlterRequest, GetRequest, ScanRequest, WriteRequest,

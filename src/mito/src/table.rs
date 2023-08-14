@@ -46,7 +46,7 @@ use table::metadata::{
 use table::requests::{
     AddColumnRequest, AlterKind, AlterTableRequest, DeleteRequest, InsertRequest,
 };
-use table::table::{AlterContext, Table};
+use table::table::{AlterContext, AppendSSTRequest, Table};
 use table::{error as table_error, RegionStat};
 use tokio::sync::Mutex;
 
@@ -76,6 +76,29 @@ pub struct MitoTable<R: Region> {
 
 #[async_trait]
 impl<R: Region> Table for MitoTable<R> {
+    async fn append_sst(&self, request: AppendSSTRequest) -> TableResult<()> {
+        let AppendSSTRequest {
+            file_id,
+            file_size,
+            region_number,
+            time_range,
+        } = request;
+
+        let regions = self.regions.load();
+        let region = regions.get(&region_number).expect("get region by id");
+
+        region
+            .append_sst(store_api::storage::AppendSSTRequest {
+                file_id,
+                file_size,
+                time_range,
+            })
+            .await
+            .expect("append sst");
+
+        Ok(())
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

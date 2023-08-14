@@ -34,6 +34,7 @@
 
 use async_trait::async_trait;
 use common_error::ext::ErrorExt;
+use common_time::Timestamp;
 
 use crate::storage::engine::OpenOptions;
 use crate::storage::metadata::RegionMeta;
@@ -75,6 +76,10 @@ pub trait Region: Send + Sync + Clone + std::fmt::Debug + 'static {
 
     async fn drop_region(&self) -> Result<(), Self::Error>;
 
+    async fn append_sst(&self, _request: AppendSSTRequest) -> Result<(), Self::Error> {
+        todo!()
+    }
+
     fn disk_usage_bytes(&self) -> u64;
 
     fn region_stat(&self) -> RegionStat {
@@ -90,6 +95,12 @@ pub trait Region: Send + Sync + Clone + std::fmt::Debug + 'static {
     async fn compact(&self, ctx: &CompactContext) -> Result<(), Self::Error>;
 
     async fn truncate(&self) -> Result<(), Self::Error>;
+}
+
+pub struct AppendSSTRequest {
+    pub file_id: String,
+    pub file_size: u64,
+    pub time_range: (Timestamp, Timestamp),
 }
 
 #[derive(Default, Debug)]

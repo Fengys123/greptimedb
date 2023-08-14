@@ -32,8 +32,9 @@ use store_api::manifest::{
     self, Manifest, ManifestLogStorage, ManifestVersion, MetaActionIterator,
 };
 use store_api::storage::{
-    AlterRequest, CloseContext, CompactContext, CompactionStrategy, FlushContext, FlushReason,
-    OpenOptions, ReadContext, Region, RegionId, SequenceNumber, WriteContext, WriteResponse,
+    AlterRequest, AppendSSTRequest, CloseContext, CompactContext, CompactionStrategy, FlushContext,
+    FlushReason, OpenOptions, ReadContext, Region, RegionId, SequenceNumber, WriteContext,
+    WriteResponse,
 };
 
 use crate::compaction::{
@@ -44,7 +45,8 @@ use crate::error::{self, Error, Result};
 use crate::file_purger::FilePurgerRef;
 use crate::flush::{FlushSchedulerRef, FlushStrategyRef};
 use crate::manifest::action::{
-    RawRegionMetadata, RegionChange, RegionCheckpoint, RegionMetaAction, RegionMetaActionList,
+    RawRegionMetadata, RegionChange, RegionCheckpoint, RegionEdit, RegionMetaAction,
+    RegionMetaActionList,
 };
 use crate::manifest::region::RegionManifest;
 use crate::memtable::{MemtableBuilderRef, MemtableVersion};
@@ -56,7 +58,7 @@ pub use crate::region::writer::{
 use crate::region::writer::{DropContext, TruncateContext};
 use crate::schema::compat::CompatWrite;
 use crate::snapshot::SnapshotImpl;
-use crate::sst::{AccessLayerRef, LevelMetas};
+use crate::sst::{AccessLayerRef, FileId, FileMeta, Level, LevelMetas};
 use crate::version::{
     Version, VersionControl, VersionControlRef, VersionEdit, INIT_COMMITTED_SEQUENCE,
 };
@@ -157,6 +159,10 @@ impl<S: LogStore> Region for RegionImpl<S> {
 
     async fn truncate(&self) -> Result<()> {
         self.inner.truncate().await
+    }
+
+    async fn append_sst(&self, request: AppendSSTRequest) -> std::result::Result<(), Self::Error> {
+        self.inner.append_sst(request).await
     }
 }
 
@@ -676,6 +682,34 @@ struct RegionInner<S: LogStore> {
 }
 
 impl<S: LogStore> RegionInner<S> {
+    async fn append_sst(&self, request: AppendSSTRequest) -> Result<()> {
+        let AppendSSTRequest {
+            file_id,
+            file_size,
+            time_range,
+        } = request;
+
+        let file_meta = FileMeta {
+            region_id: self.shared.id(),
+            file_id: FileId::parse_str(&file_id).expect("can not parse file id"),
+            time_range: Some(time_range),
+            level: Level::default(),
+            file_size,
+        };
+
+        let region_edit = RegionEdit {
+            region_version: self.shared.version_control.metadata().version(),
+            flushed_sequence: None,
+            files_to_add: vec![file_meta],
+            files_to_remove: Vec::default(),
+            compaction_time_window: None,
+        };
+
+        self.writer
+            .write_edit_and_apply(&self.wal, &self.shared, &self.manifest, region_edit, None)
+            .await
+    }
+
     #[inline]
     fn version_control(&self) -> &VersionControl {
         &self.shared.version_control

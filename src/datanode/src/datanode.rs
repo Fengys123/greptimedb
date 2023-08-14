@@ -14,15 +14,23 @@
 
 //! Datanode configurations
 
+use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use axum::extract::{Query, State};
+use axum::response::IntoResponse;
+use axum::routing::get;
+use axum::Router;
 use common_base::readable_size::ReadableSize;
 use common_base::Plugins;
 use common_error::ext::BoxedError;
 pub use common_procedure::options::ProcedureConfig;
 use common_telemetry::info;
 use common_telemetry::logging::LoggingOptions;
+use common_time::Timestamp;
+use hyper::StatusCode;
 use meta_client::MetaClientOptions;
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
@@ -35,6 +43,7 @@ use storage::config::{
     DEFAULT_PICKER_SCHEDULE_INTERVAL, DEFAULT_REGION_WRITE_BUFFER_SIZE,
 };
 use storage::scheduler::SchedulerConfig;
+use table::table::AppendSSTRequest;
 
 use crate::error::{Result, ShutdownInstanceSnafu};
 use crate::heartbeat::HeartbeatTask;
@@ -402,7 +411,78 @@ pub struct Datanode {
     heartbeat_task: Option<HeartbeatTask>,
 }
 
+#[axum_macros::debug_handler]
+pub async fn append_sst(
+    State(instance): State<InstanceRef>,
+    Query(mut params): Query<HashMap<String, String>>,
+) -> impl IntoResponse {
+    let table_name = params
+        .remove("table_name")
+        .unwrap_or("dist_table".to_string());
+    let region_number: u32 = params
+        .remove("region_number")
+        .unwrap_or("0".to_string())
+        .parse()
+        .unwrap();
+    let file_id = params
+        .remove("file_id")
+        .unwrap_or("".to_string())
+        .parse()
+        .unwrap();
+    let file_size = params
+        .remove("file_size")
+        .unwrap_or("0".to_string())
+        .parse()
+        .unwrap();
+    let time_range_start = params
+        .remove("time_range_start")
+        .unwrap_or("0".to_string())
+        .parse()
+        .unwrap();
+    let time_range_end = params
+        .remove("time_range_end")
+        .unwrap_or("0".to_string())
+        .parse()
+        .unwrap();
+
+    let time_range_start = Timestamp::new_millisecond(time_range_start);
+    let time_range_end = Timestamp::new_millisecond(time_range_end);
+
+    let manager = instance.catalog_manager();
+    let table = manager
+        .table("greptime", "public", &table_name)
+        .await
+        .expect("get table")
+        .expect("table is null");
+
+    table
+        .append_sst(AppendSSTRequest {
+            file_id,
+            file_size,
+            region_number,
+            time_range: (time_range_start, time_range_end),
+        })
+        .await
+        .expect("append sst");
+
+    (StatusCode::NO_CONTENT, ())
+}
+
 impl Datanode {
+    pub async fn start_reload_region_http_server(&self) {
+        let http_addr = format!("127.0.0.1:91{}", self.opts.node_id.unwrap());
+        let app = Router::new()
+            .route("/append_sst", get(append_sst))
+            .with_state(self.instance.clone());
+
+        tokio::spawn(async move {
+            axum::Server::bind(&http_addr.parse::<SocketAddr>().unwrap())
+                .serve(app.into_make_service())
+                .await
+                .unwrap();
+        });
+    }
+
     pub async fn new(opts: DatanodeOptions, plugins: Arc<Plugins>) -> Result<Datanode> {
         let (instance, heartbeat_task) = Instance::with_opts(&opts, plugins).await?;
         let services = match opts.mode {
@@ -420,7 +500,9 @@ impl Datanode {
     pub async fn start(&mut self) -> Result<()> {
         info!("Starting datanode instance...");
         self.start_instance().await?;
-        self.start_services().await
+        self.start_reload_region_http_server().await;
+        self.start_services().await?;
+        Ok(())
     }
 
     /// Start only the internal component of datanode.

@@ -22,6 +22,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use common_query::logical_plan::Expr;
 use common_recordbatch::SendableRecordBatchStream;
+use common_time::Timestamp;
 use datatypes::schema::SchemaRef;
 use store_api::storage::{RegionNumber, ScanRequest};
 
@@ -33,9 +34,20 @@ use crate::RegionStat;
 
 pub type AlterContext = anymap::Map<dyn Any + Send + Sync>;
 
+pub struct AppendSSTRequest {
+    pub file_id: String,
+    pub file_size: u64,
+    pub region_number: u32,
+    pub time_range: (Timestamp, Timestamp),
+}
+
 /// Table abstraction.
 #[async_trait]
 pub trait Table: Send + Sync {
+    async fn append_sst(&self, _request: AppendSSTRequest) -> Result<()> {
+        unimplemented!()
+    }
+
     /// Returns the table as [`Any`](std::any::Any) so that it can be
     /// downcast to a specific implementation.
     fn as_any(&self) -> &dyn Any;

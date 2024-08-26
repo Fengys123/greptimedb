@@ -44,6 +44,8 @@ mod time_provider;
 pub mod wal;
 mod worker;
 
+pub use worker::{DdlInterceptor, DdlInterceptorRef};
+
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// # Mito developer document
 ///

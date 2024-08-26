@@ -443,6 +443,7 @@ impl<S: LogStore> WorkerStarter<S> {
             stalled_count: WRITE_STALL_TOTAL.with_label_values(&[&id_string]),
             region_count: REGION_COUNT.with_label_values(&[&id_string]),
             region_edit_queues: RegionEditQueues::default(),
+            plugins: self.plugins.clone(),
         };
         let handle = common_runtime::spawn_global(async move {
             worker_thread.run().await;
@@ -633,6 +634,7 @@ struct RegionWorkerLoop<S> {
     region_count: IntGauge,
     /// Queues for region edit requests.
     region_edit_queues: RegionEditQueues,
+    plugins: Plugins,
 }
 
 impl<S: LogStore> RegionWorkerLoop<S> {
@@ -757,6 +759,21 @@ impl<S: LogStore> RegionWorkerLoop<S> {
         }
 
         for ddl in ddl_requests {
+            if let Some(interceptor) = self.plugins.get::<DdlInterceptorRef>() {
+                match interceptor.pre_handle_ddl(&ddl).await {
+                    Ok(is_skip) if !is_skip => {
+                        info!("Skip DDL request due to interceptor, detail: {:?}", ddl);
+                        ddl.sender.send(Ok(0));
+                        continue;
+                    }
+                    Err(e) => {
+                        ddl.sender.send(Err(e));
+                        continue;
+                    }
+                    _ => {}
+                }
+            }
+
             let res = match ddl.request {
                 DdlRequest::Create(req) => self.handle_create_request(ddl.region_id, req).await,
                 DdlRequest::Drop(_) => self.handle_drop_request(ddl.region_id).await,
@@ -951,6 +968,16 @@ impl WorkerListener {
         let _ = request_num;
     }
 }
+
+#[async_trait::async_trait]
+pub trait DdlInterceptor {
+    /// Returns Ok(true) if the DDL request should be handled.
+    /// Returns Ok(false) if the DDL request should be skipped.
+    /// Returns error if some errors occurred in pre_handle_ddl method.
+    async fn pre_handle_ddl(&self, req: &SenderDdlRequest) -> Result<bool>;
+}
+
+pub type DdlInterceptorRef = Arc<dyn DdlInterceptor + Send + Sync>;
 
 #[cfg(test)]
 mod tests {

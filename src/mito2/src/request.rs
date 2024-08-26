@@ -606,7 +606,7 @@ impl WorkerRequest {
 
 /// DDL request to a region.
 #[derive(Debug)]
-pub(crate) enum DdlRequest {
+pub enum DdlRequest {
     Create(RegionCreateRequest),
     Drop(RegionDropRequest),
     Open((RegionOpenRequest, Option<WalEntryReceiver>)),
@@ -620,13 +620,19 @@ pub(crate) enum DdlRequest {
 
 /// Sender and Ddl request.
 #[derive(Debug)]
-pub(crate) struct SenderDdlRequest {
+pub struct SenderDdlRequest {
     /// Region id of the request.
     pub(crate) region_id: RegionId,
     /// Result sender.
     pub(crate) sender: OptionOutputTx,
     /// Ddl request.
     pub(crate) request: DdlRequest,
+}
+
+impl SenderDdlRequest {
+    pub fn ddl_request(&self) -> &DdlRequest {
+        &self.request
+    }
 }
 
 /// Notification from a background job.

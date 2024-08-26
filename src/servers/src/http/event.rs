@@ -423,7 +423,7 @@ fn extract_pipeline_value_by_content_type(
     })
 }
 
-async fn ingest_logs_inner(
+pub async fn ingest_logs_inner(
     state: LogHandlerRef,
     pipeline_name: String,
     version: PipelineVersion,

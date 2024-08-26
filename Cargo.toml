@@ -61,6 +61,7 @@ members = [
     "tests-fuzz",
     "tests-integration",
     "tests/runner",
+    "src/feature-control",
 ]
 resolver = "2"
 
@@ -249,6 +250,8 @@ sql = { path = "src/sql" }
 store-api = { path = "src/store-api" }
 substrait = { path = "src/common/substrait" }
 table = { path = "src/table" }
+
+feature-control = { path = "src/feature-control" }
 
 [patch.crates-io]
 # change all rustls dependencies to use our fork to default to `ring` to make it "just work"

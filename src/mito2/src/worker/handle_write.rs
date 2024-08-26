@@ -68,8 +68,8 @@ impl<S: LogStore> RegionWorkerLoop<S> {
             self.prepare_region_write_ctx(write_requests)
         };
 
-        // Write to WAL.
-        {
+        if feature_control::enable_wal() {
+            // Write to WAL.
             let _timer = WRITE_STAGE_ELAPSED
                 .with_label_values(&["write_wal"])
                 .start_timer();

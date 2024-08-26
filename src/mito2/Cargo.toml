@@ -72,6 +72,8 @@ tokio-stream.workspace = true
 tokio-util.workspace = true
 uuid.workspace = true
 
+feature-control.workspace = true
+
 [dev-dependencies]
 common-function.workspace = true
 common-procedure-test.workspace = true

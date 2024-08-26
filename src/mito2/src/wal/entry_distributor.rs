@@ -176,7 +176,7 @@ pub const DEFAULT_ENTRY_RECEIVER_BUFFER_SIZE: usize = 2048;
 ///                                  |
 /// // may deadlock                  |
 /// distributor.distribute().await;  |
-///                                  |  
+///                                  |
 ///                                  |
 /// receivers[0].read().await        |
 /// ```

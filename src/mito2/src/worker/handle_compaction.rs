@@ -31,6 +31,11 @@ impl<S> RegionWorkerLoop<S> {
         req: RegionCompactRequest,
         mut sender: OptionOutputTx,
     ) {
+        if !feature_control::enable_compaction() {
+            sender.send(Ok(0));
+            return;
+        }
+
         let Some(region) = self.regions.writable_region_or(region_id, &mut sender) else {
             return;
         };

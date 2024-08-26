@@ -91,6 +91,7 @@ use crate::manifest::action::RegionEdit;
 use crate::metrics::HANDLE_REQUEST_ELAPSED;
 use crate::read::scan_region::{ScanParallism, ScanRegion, Scanner};
 use crate::request::{RegionEditRequest, WorkerRequest};
+use crate::sst::file::FileHandle;
 use crate::wal::entry_distributor::{
     build_wal_entry_distributor_and_receivers, DEFAULT_ENTRY_RECEIVER_BUFFER_SIZE,
 };
@@ -210,6 +211,32 @@ impl MitoEngine {
     #[cfg(test)]
     pub(crate) fn get_region(&self, id: RegionId) -> Option<crate::region::MitoRegionRef> {
         self.inner.workers.get_region(id)
+    }
+
+    /// Returns the path of the region and its unmarked deleted SST files.
+    ///
+    /// Note: this operation will cause the reference count of the file handles
+    /// to increase by 1, which may cause a delay in deleting the sst.
+    pub fn not_deleted_ssts(&self, region_id: RegionId) -> Option<(String, Vec<FileHandle>)> {
+        let region = self.inner.workers.get_region(region_id)?;
+        let region_dir = region.region_dir();
+
+        let version = region.version();
+        let ssts = version
+            .ssts
+            .levels()
+            .iter()
+            .flat_map(|level_meta| {
+                level_meta
+                    .files
+                    .values()
+                    .filter(|file_handle| !file_handle.deleted())
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+
+        Some((region_dir.into(), ssts))
     }
 }
 

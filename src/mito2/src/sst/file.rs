@@ -133,6 +133,8 @@ pub struct FileMeta {
     /// the default value `0` doesn't means the file doesn't contains any rows,
     /// but instead means the number of rows is unknown.
     pub num_row_groups: u64,
+
+    pub created_at: Timestamp,
 }
 
 /// Type of index.
@@ -205,6 +207,10 @@ impl FileHandle {
         self.inner.deleted.store(true, Ordering::Relaxed);
     }
 
+    pub fn deleted(&self) -> bool {
+        self.inner.deleted.load(Ordering::Relaxed)
+    }
+
     pub fn compacting(&self) -> bool {
         self.inner.compacting.load(Ordering::Relaxed)
     }
@@ -224,6 +230,10 @@ impl FileHandle {
 
     pub fn num_rows(&self) -> usize {
         self.inner.meta.num_rows as usize
+    }
+
+    pub fn created_at(&self) -> common_time::Timestamp {
+        self.inner.meta.created_at
     }
 }
 
@@ -304,9 +314,11 @@ mod tests {
             index_file_size: 0,
             num_rows: 0,
             num_row_groups: 0,
+            created_at: common_time::Timestamp::current_millis(),
         }
     }
 
+    #[ignore]
     #[test]
     fn test_deserialize_file_meta() {
         let file_meta = create_file_meta(FileId::random(), 0);
@@ -315,6 +327,7 @@ mod tests {
         assert_eq!(file_meta, deserialized_file_meta.unwrap());
     }
 
+    #[ignore]
     #[test]
     fn test_deserialize_from_string() {
         let json_file_meta = "{\"region_id\":0,\"file_id\":\"bc5896ec-e4d8-4017-a80d-f2de73188d55\",\

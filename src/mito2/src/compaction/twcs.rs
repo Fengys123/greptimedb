@@ -729,6 +729,7 @@ mod tests {
                         index_file_size: 0,
                         num_rows: 0,
                         num_row_groups: 0,
+                        created_at: common_time::Timestamp::current_millis(),
                     },
                     Arc::new(NoopFilePurger),
                 )

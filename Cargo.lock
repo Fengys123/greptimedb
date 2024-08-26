@@ -3904,6 +3904,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "feature-control"
+version = "0.9.5"
+
+[[package]]
 name = "file-engine"
 version = "0.9.5"
 dependencies = [
@@ -6572,6 +6576,7 @@ dependencies = [
  "datafusion-expr",
  "datatypes",
  "dotenv",
+ "feature-control",
  "futures",
  "humantime-serde",
  "index",

@@ -96,7 +96,7 @@ impl WalEntryDistributor {
 
 /// Receives the Wal entries from [WalEntryDistributor].
 #[derive(Debug)]
-pub(crate) struct WalEntryReceiver {
+pub struct WalEntryReceiver {
     /// Receives the [Entry] from the [WalEntryDistributor].
     entry_receiver: Option<Receiver<Entry>>,
     /// Sends the `start_id` to the [WalEntryDistributor].
@@ -176,7 +176,7 @@ pub const DEFAULT_ENTRY_RECEIVER_BUFFER_SIZE: usize = 2048;
 ///                                  |
 /// // may deadlock                  |
 /// distributor.distribute().await;  |
-///                                  |  
+///                                  |
 ///                                  |
 /// receivers[0].read().await        |
 /// ```

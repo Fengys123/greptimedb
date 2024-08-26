@@ -243,7 +243,8 @@ impl<S: LogStore> RegionWorkerLoop<S> {
         self.handle_stalled_requests().await;
 
         // Schedules compaction.
-        self.schedule_compaction(&region).await;
+        // Disable compaction on edge.
+        // self.schedule_compaction(&region).await;
 
         self.listener.on_flush_success(region_id);
     }

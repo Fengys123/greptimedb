@@ -7,6 +7,7 @@ license.workspace = true
 [features]
 default = []
 test = ["common-test-util", "log-store", "rstest", "rstest_reuse", "rskafka"]
+skip_wal = []
 
 [lints]
 workspace = true

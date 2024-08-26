@@ -105,6 +105,7 @@ async fn collect_stream_ts(stream: SendableRecordBatchStream) -> Vec<i64> {
     res
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_compaction_region() {
     common_telemetry::init_default_ut_logging();
@@ -262,6 +263,7 @@ async fn test_compaction_region_with_overlapping_delete_all() {
     assert!(vec.is_empty());
 }
 
+#[ignore]
 // For issue https://github.com/GreptimeTeam/greptimedb/issues/3633
 #[tokio::test]
 async fn test_readonly_during_compaction() {

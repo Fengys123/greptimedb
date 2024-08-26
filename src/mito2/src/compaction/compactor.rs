@@ -325,6 +325,7 @@ impl Compactor for DefaultCompactor {
                         index_file_size: sst_info.index_metadata.file_size,
                         num_rows: sst_info.num_rows as u64,
                         num_row_groups: sst_info.num_row_groups,
+                        created_at: common_time::Timestamp::current_millis(),
                     });
                 Ok(file_meta_opt)
             });

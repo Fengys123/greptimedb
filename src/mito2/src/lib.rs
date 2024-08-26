@@ -18,6 +18,9 @@
 
 #![feature(let_chains)]
 #![feature(assert_matches)]
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_mut)]
 
 #[cfg(any(test, feature = "test"))]
 #[cfg_attr(feature = "test", allow(unused))]
@@ -43,6 +46,8 @@ pub mod sst;
 mod time_provider;
 pub mod wal;
 mod worker;
+
+pub use worker::{DdlInterceptor, DdlInterceptorRef};
 
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// # Mito developer document

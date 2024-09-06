@@ -18,6 +18,9 @@
 
 #![feature(let_chains)]
 #![feature(assert_matches)]
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_mut)]
 
 #[cfg(any(test, feature = "test"))]
 #[cfg_attr(feature = "test", allow(unused))]

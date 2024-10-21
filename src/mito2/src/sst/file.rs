@@ -204,6 +204,10 @@ impl FileHandle {
         self.inner.deleted.store(true, Ordering::Relaxed);
     }
 
+    pub fn deleted(&self) -> bool {
+        self.inner.deleted.load(Ordering::Relaxed)
+    }
+
     pub fn compacting(&self) -> bool {
         self.inner.compacting.load(Ordering::Relaxed)
     }

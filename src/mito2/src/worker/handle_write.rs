@@ -68,14 +68,7 @@ impl<S: LogStore> RegionWorkerLoop<S> {
             self.prepare_region_write_ctx(write_requests)
         };
 
-        let enable_wal = if cfg!(test) {
-            // In test environment, we always enable WAL.
-            true
-        } else {
-            feature_control::enable_wal()
-        };
-
-        if enable_wal {
+        if feature_control::enable_wal() {
             // Write to WAL.
             let _timer = WRITE_STAGE_ELAPSED
                 .with_label_values(&["write_wal"])

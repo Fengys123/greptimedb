@@ -242,15 +242,8 @@ impl<S: LogStore> RegionWorkerLoop<S> {
         // Handle stalled requests.
         self.handle_stalled_requests().await;
 
-        // Schedules compaction.
-        let enable_compaction = if cfg!(test) {
-            // In the test environment, enable compaction.
-            true
-        } else {
-            feature_control::enable_compaction()
-        };
-
-        if enable_compaction {
+        if feature_control::enable_compaction() {
+            // Schedules compaction.
             self.schedule_compaction(&region).await;
         }
 

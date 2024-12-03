@@ -31,7 +31,14 @@ impl<S> RegionWorkerLoop<S> {
         req: RegionCompactRequest,
         mut sender: OptionOutputTx,
     ) {
-        if !feature_control::enable_compaction() {
+        let enable_compaction = if cfg!(test) {
+            // In the test environment, enable compaction.
+            true
+        } else {
+            feature_control::enable_compaction()
+        };
+
+        if !enable_compaction {
             sender.send(Ok(0));
             return;
         }
